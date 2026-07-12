@@ -12,6 +12,8 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+
+	"github.com/t0mer/tollan/internal/input"
 )
 
 // EnvPrefix is the environment-variable prefix for all settings.
@@ -23,9 +25,18 @@ type Config struct {
 	// metadata database.
 	DataDir string `mapstructure:"data_dir"`
 
-	Log  LogConfig  `mapstructure:"log"`
-	HTTP HTTPConfig `mapstructure:"http"`
-	Auth AuthConfig `mapstructure:"auth"`
+	Log     LogConfig      `mapstructure:"log"`
+	HTTP    HTTPConfig     `mapstructure:"http"`
+	Auth    AuthConfig     `mapstructure:"auth"`
+	Journal JournalConfig  `mapstructure:"journal"`
+	Inputs  []input.Config `mapstructure:"inputs"`
+}
+
+// JournalConfig bounds the disk-backed ingest journal. Zero values fall back to
+// the journal package defaults.
+type JournalConfig struct {
+	MaxSegmentBytes int64 `mapstructure:"max_segment_bytes"`
+	MaxTotalBytes   int64 `mapstructure:"max_total_bytes"`
 }
 
 // LogConfig controls structured logging.
@@ -69,6 +80,17 @@ func Defaults() Config {
 		Auth: AuthConfig{
 			Mode: "enabled",
 		},
+	}
+}
+
+// DefaultInputs returns the built-in inputs used when none are configured, so a
+// fresh install can receive syslog and GELF out of the box (§4). Ports are the
+// unprivileged defaults; map 514→1514 in Docker for standard syslog.
+func DefaultInputs() []input.Config {
+	return []input.Config{
+		{ID: "syslog-udp", Type: "syslog", Bind: ":1514", Protocol: input.UDP},
+		{ID: "syslog-tcp", Type: "syslog", Bind: ":1514", Protocol: input.TCP},
+		{ID: "gelf-udp", Type: "gelf", Bind: ":12201", Protocol: input.UDP},
 	}
 }
 
