@@ -1,0 +1,79 @@
+openapi: 3.0.3
+info:
+  title: Tollan API
+  description: >
+    REST API for Tollan, a self-hosted log management server. Everything the web
+    UI does is available through this API. During bootstrap (no admin user yet,
+    or auth disabled) the API is open; otherwise it requires a session cookie or
+    a Bearer API token.
+  version: 0.1.0
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+servers:
+  - url: /
+tags:
+  - name: system
+    description: Health and build information.
+paths:
+  /health:
+    get:
+      tags: [system]
+      summary: Liveness/readiness probe.
+      operationId: getHealth
+      security: []
+      responses:
+        "200":
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /api/v1/version:
+    get:
+      tags: [system]
+      summary: Build/version information.
+      operationId: getVersion
+      responses:
+        "200":
+          description: Version details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Version"
+components:
+  securitySchemes:
+    bearerToken:
+      type: http
+      scheme: bearer
+      description: Per-user, named, revocable API token.
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: tollan_session
+  schemas:
+    Health:
+      type: object
+      required: [status, version]
+      properties:
+        status:
+          type: string
+          example: ok
+        version:
+          type: string
+          example: 2026.7.0
+    Version:
+      type: object
+      required: [version, commit, date, go]
+      properties:
+        version:
+          type: string
+        commit:
+          type: string
+        date:
+          type: string
+        go:
+          type: string
+security:
+  - bearerToken: []
+  - sessionCookie: []
