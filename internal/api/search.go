@@ -50,6 +50,10 @@ func (a *API) handleSearch(w http.ResponseWriter, r *http.Request) {
 	if limit > 1000 {
 		limit = 1000
 	}
+	offset := parseInt(q.Get("offset"), 0)
+	if offset > 100000 { // bound deep paging to keep per-partition fetches sane
+		offset = 100000
+	}
 	order := logstore.Descending
 	if q.Get("order") == "asc" {
 		order = logstore.Ascending
@@ -61,7 +65,7 @@ func (a *API) handleSearch(w http.ResponseWriter, r *http.Request) {
 		Text:   q.Get("q"),
 		Stream: q.Get("stream"),
 		Limit:  limit,
-		Offset: parseInt(q.Get("offset"), 0),
+		Offset: offset,
 		Order:  order,
 	})
 	if err != nil {
