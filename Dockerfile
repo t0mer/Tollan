@@ -26,11 +26,15 @@ ARG TARGETVARIANT
 RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} GOARM=${TARGETVARIANT#v} go build \
     -trimpath -ldflags="-s -w -X github.com/t0mer/tollan/internal/version.Version=${VERSION}" \
     -o /out/tollan ./cmd/tollan
+# Pre-create the data dir owned by the runtime uid so anonymous/named volumes
+# mounted over /data inherit writable ownership (scratch has no shell to chown).
+RUN mkdir -p /data
 
 # Stage 3: runtime — scratch, self-contained.
 FROM scratch
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+COPY --from=builder --chown=65534:65534 /data /data
 COPY --from=builder /out/tollan /tollan
 
 ENV TOLLAN_DATA_DIR=/data
