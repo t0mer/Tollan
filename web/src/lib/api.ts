@@ -31,7 +31,50 @@ export type Health = {
   version: string;
 };
 
+export type LogMessage = {
+  id: string;
+  timestamp: string;
+  received_at: string;
+  source: string;
+  stream: string;
+  input_id: string;
+  message: string;
+  fields?: Record<string, unknown>;
+};
+
+export type SearchResult = {
+  total: number;
+  count: number;
+  messages: LogMessage[];
+};
+
+export type SearchParams = {
+  q?: string;
+  from?: string;
+  to?: string;
+  stream?: string;
+  limit?: number;
+  offset?: number;
+  order?: "asc" | "desc";
+};
+
+export type InputStatus = {
+  id: string;
+  type: string;
+  bind: string;
+  protocol: string;
+  running: boolean;
+};
+
 export const api = {
   version: () => apiGet<VersionInfo>("/api/v1/version"),
   health: () => apiGet<Health>("/health"),
+  inputs: () => apiGet<InputStatus[]>("/api/v1/inputs"),
+  search: (p: SearchParams) => {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(p)) {
+      if (v !== undefined && v !== "" && v !== null) qs.set(k, String(v));
+    }
+    return apiGet<SearchResult>(`/api/v1/search?${qs.toString()}`);
+  },
 };

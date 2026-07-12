@@ -1,6 +1,8 @@
 import { Routes, Route } from "react-router-dom";
 import { AppShell } from "@/components/app-shell";
 import { OverviewPage } from "@/pages/overview";
+import { SearchPage } from "@/pages/search";
+import { InputsPage } from "@/pages/inputs";
 import { PlaceholderPage } from "@/pages/placeholder";
 
 export default function App() {
@@ -8,15 +10,7 @@ export default function App() {
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<OverviewPage />} />
-        <Route
-          path="search"
-          element={
-            <PlaceholderPage
-              title="Search"
-              blurb="Query, filter and explore logs across streams and time ranges."
-            />
-          }
-        />
+        <Route path="search" element={<SearchPage />} />
         <Route
           path="streams"
           element={
@@ -44,15 +38,7 @@ export default function App() {
             />
           }
         />
-        <Route
-          path="inputs"
-          element={
-            <PlaceholderPage
-              title="Inputs"
-              blurb="Receive logs over Syslog, GELF, Beats, CEF, HTTP-JSON, NetFlow and IPFIX."
-            />
-          }
-        />
+        <Route path="inputs" element={<InputsPage />} />
         <Route
           path="fleet"
           element={
