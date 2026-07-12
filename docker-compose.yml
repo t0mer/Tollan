@@ -1,0 +1,24 @@
+services:
+  tollan:
+    image: techblog/tollan:latest
+    # build: .   # uncomment to build locally instead of pulling
+    ports:
+      - "8080:8080"        # web UI + REST API
+      - "514:1514/udp"     # syslog (host 514 -> container 1514, unprivileged)
+      - "514:1514/tcp"
+      - "6514:6514/tcp"    # syslog TLS
+      - "12201:12201/udp"  # GELF
+      - "12201:12201/tcp"
+      - "5044:5044/tcp"    # Beats
+      - "2055:2055/udp"    # NetFlow
+      - "4739:4739/udp"    # IPFIX
+    volumes:
+      # Named volume inherits the image's /data ownership (runs as uid 65534).
+      - tollan-data:/data
+    environment:
+      TOLLAN_LOG_LEVEL: info
+      TOLLAN_DATA_DIR: /data
+    restart: unless-stopped
+
+volumes:
+  tollan-data:

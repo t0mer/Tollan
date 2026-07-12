@@ -1,0 +1,17 @@
+# Tollan configuration example.
+#
+# Precedence (highest first): flags > environment (TOLLAN_ prefix) > this file.
+# Pass with --config /path/to/config.yaml.
+
+# Root directory for the journal, log partitions and metadata database.
+data_dir: ./data
+
+log:
+  level: info   # debug | info | warning | error
+  format: text  # text | json
+
+http:
+  addr: ":8080"
+
+auth:
+  mode: enabled # enabled | disabled (open lab mode)
