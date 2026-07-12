@@ -1,7 +1,6 @@
 // Package api implements Tollan's spec-first REST API. The router mounted here
 // is the single surface the web UI consumes. The canonical contract lives in
-// api/openapi.yaml (embedded) and is served, with an interactive docs UI, at
-// /api/docs.
+// api/openapi.yaml (embedded) and is served, with a docs page, at /api/docs.
 package api
 
 import (
@@ -10,21 +9,34 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/t0mer/tollan/internal/input"
+	"github.com/t0mer/tollan/internal/logstore"
 	"github.com/t0mer/tollan/internal/version"
 )
 
-// API holds the dependencies handlers need. It grows as subsystems are wired in.
+// InputLister exposes the running inputs to the API.
+type InputLister interface {
+	List() []input.Status
+}
+
+// Deps are the API handler dependencies.
+type Deps struct {
+	Spec   []byte
+	Store  logstore.Store
+	Inputs InputLister
+}
+
+// API holds the handler dependencies.
 type API struct {
-	spec []byte
+	deps Deps
 }
 
-// New constructs an API with the embedded OpenAPI spec bytes.
-func New(spec []byte) *API {
-	return &API{spec: spec}
+// New constructs an API from its dependencies.
+func New(deps Deps) *API {
+	return &API{deps: deps}
 }
 
-// Routes returns the chi router for everything under the API surface: the
-// versioned endpoints plus the OpenAPI spec and docs UI.
+// Routes returns the chi router for the API surface.
 func (a *API) Routes() chi.Router {
 	r := chi.NewRouter()
 
@@ -33,6 +45,9 @@ func (a *API) Routes() chi.Router {
 
 	r.Route("/v1", func(r chi.Router) {
 		r.Get("/version", a.handleVersion)
+		r.Get("/search", a.handleSearch)
+		r.Get("/inputs", a.handleInputs)
+		r.Get("/streams", a.handleStreams)
 	})
 	return r
 }
@@ -41,9 +56,17 @@ func (a *API) handleVersion(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, version.Get())
 }
 
+func (a *API) handleInputs(w http.ResponseWriter, r *http.Request) {
+	if a.deps.Inputs == nil {
+		writeJSON(w, http.StatusOK, []input.Status{})
+		return
+	}
+	writeJSON(w, http.StatusOK, a.deps.Inputs.List())
+}
+
 func (a *API) handleSpec(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/yaml")
-	_, _ = w.Write(a.spec)
+	_, _ = w.Write(a.deps.Spec)
 }
 
 func (a *API) handleDocs(w http.ResponseWriter, r *http.Request) {
@@ -56,6 +79,11 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+// writeError writes a JSON error envelope.
+func writeError(w http.ResponseWriter, status int, msg string) {
+	writeJSON(w, status, map[string]string{"error": msg})
 }
 
 // docsHTML is a self-contained landing page for the API docs. It links to the

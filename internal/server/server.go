@@ -17,6 +17,7 @@ import (
 
 	"github.com/t0mer/tollan/internal/api"
 	"github.com/t0mer/tollan/internal/config"
+	"github.com/t0mer/tollan/internal/logstore"
 	"github.com/t0mer/tollan/internal/metrics"
 	"github.com/t0mer/tollan/internal/version"
 )
@@ -38,6 +39,10 @@ type Options struct {
 	APISpec []byte
 	// WebUI is the built single-page app filesystem (embedded).
 	WebUI fs.FS
+	// Store backs the search API.
+	Store logstore.Store
+	// Inputs lists running inputs for the API.
+	Inputs api.InputLister
 }
 
 // New builds a Server with the routes mounted.
@@ -69,7 +74,11 @@ func (s *Server) routes(opts Options) http.Handler {
 		r.Handle("/metrics", s.metrics.Handler())
 	}
 
-	r.Mount("/api", api.New(opts.APISpec).Routes())
+	r.Mount("/api", api.New(api.Deps{
+		Spec:   opts.APISpec,
+		Store:  opts.Store,
+		Inputs: opts.Inputs,
+	}).Routes())
 
 	if opts.WebUI != nil {
 		r.Handle("/*", spaHandler(opts.WebUI))

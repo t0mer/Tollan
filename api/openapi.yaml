@@ -15,6 +15,12 @@ servers:
 tags:
   - name: system
     description: Health and build information.
+  - name: search
+    description: Log search.
+  - name: inputs
+    description: Ingest inputs.
+  - name: streams
+    description: Message streams.
 paths:
   /health:
     get:
@@ -41,6 +47,54 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Version"
+  /api/v1/search:
+    get:
+      tags: [search]
+      summary: Search stored log messages.
+      operationId: search
+      parameters:
+        - { name: q, in: query, schema: { type: string }, description: "Full-text match over the message body (FTS5 syntax)." }
+        - { name: from, in: query, schema: { type: string }, description: "RFC3339 or relative (now, now-15m)." }
+        - { name: to, in: query, schema: { type: string }, description: "RFC3339 or relative (now, now-15m)." }
+        - { name: stream, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, default: 100, maximum: 1000 } }
+        - { name: offset, in: query, schema: { type: integer, default: 0 } }
+        - { name: order, in: query, schema: { type: string, enum: [asc, desc], default: desc } }
+      responses:
+        "200":
+          description: Matching messages.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResult"
+  /api/v1/inputs:
+    get:
+      tags: [inputs]
+      summary: List configured inputs and their status.
+      operationId: listInputs
+      responses:
+        "200":
+          description: Inputs.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Input"
+  /api/v1/streams:
+    get:
+      tags: [streams]
+      summary: List streams.
+      operationId: listStreams
+      responses:
+        "200":
+          description: Streams.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Stream"
 components:
   securitySchemes:
     bearerToken:
@@ -74,6 +128,41 @@ components:
           type: string
         go:
           type: string
+    Message:
+      type: object
+      properties:
+        id: { type: string }
+        timestamp: { type: string, format: date-time }
+        received_at: { type: string, format: date-time }
+        source: { type: string }
+        stream: { type: string }
+        input_id: { type: string }
+        message: { type: string }
+        fields:
+          type: object
+          additionalProperties: true
+    SearchResult:
+      type: object
+      properties:
+        total: { type: integer, description: "Total matches across the time range." }
+        count: { type: integer, description: "Number of messages in this page." }
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+    Input:
+      type: object
+      properties:
+        id: { type: string }
+        type: { type: string }
+        bind: { type: string }
+        protocol: { type: string, enum: [udp, tcp, tls, http] }
+        running: { type: boolean }
+    Stream:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
 security:
   - bearerToken: []
   - sessionCookie: []
