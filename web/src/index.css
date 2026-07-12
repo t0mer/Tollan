@@ -1,0 +1,98 @@
+@import "@fontsource-variable/inter/index.css";
+@import "@fontsource-variable/space-grotesk/index.css";
+@import "@fontsource-variable/jetbrains-mono/index.css";
+@import "tailwindcss";
+
+/* Tollan visual identity: obsidian surfaces + jade accent, warm stone in light
+   mode. Monospace is reserved for log/data lines (meaningful for a log tool). */
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: #f6f4ef;
+  --foreground: #1b2320;
+  --card: #fffefb;
+  --card-foreground: #1b2320;
+  --muted: #ece8df;
+  --muted-foreground: #5c6b64;
+  --border: #ddd7c9;
+  --input: #ddd7c9;
+  --ring: #0f9d8f;
+  --primary: #0f9d8f;
+  --primary-foreground: #ffffff;
+  --accent: #e4efec;
+  --accent-foreground: #0d3b34;
+  --destructive: #c0392b;
+  --destructive-foreground: #ffffff;
+  --warning: #b8720c;
+  --success: #0f9d8f;
+  --radius: 0.5rem;
+
+  --font-display: "Space Grotesk Variable", system-ui, sans-serif;
+  --font-sans: "Inter Variable", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+}
+
+.dark {
+  --background: #0e1413;
+  --foreground: #e6efeb;
+  --card: #151d1b;
+  --card-foreground: #e6efeb;
+  --muted: #1c2523;
+  --muted-foreground: #8ba39b;
+  --border: #26302d;
+  --input: #2a3532;
+  --ring: #17b8a6;
+  --primary: #17b8a6;
+  --primary-foreground: #04211d;
+  --accent: #17322d;
+  --accent-foreground: #7fe9d8;
+  --destructive: #f0654f;
+  --destructive-foreground: #1b0f0d;
+  --warning: #e0a53a;
+  --success: #17b8a6;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+}

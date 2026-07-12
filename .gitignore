@@ -61,3 +61,6 @@ npm-debug.log*
 # placeholder so go:embed compiles before any frontend build.
 web/dist/*
 !web/dist/.gitkeep
+
+# TypeScript incremental build info
+web/*.tsbuildinfo
