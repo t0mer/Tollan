@@ -3,6 +3,8 @@ import { AppShell } from "@/components/app-shell";
 import { OverviewPage } from "@/pages/overview";
 import { SearchPage } from "@/pages/search";
 import { InputsPage } from "@/pages/inputs";
+import { StreamsPage } from "@/pages/streams";
+import { PipelinesPage } from "@/pages/pipelines";
 import { PlaceholderPage } from "@/pages/placeholder";
 
 export default function App() {
@@ -11,15 +13,8 @@ export default function App() {
       <Route element={<AppShell />}>
         <Route index element={<OverviewPage />} />
         <Route path="search" element={<SearchPage />} />
-        <Route
-          path="streams"
-          element={
-            <PlaceholderPage
-              title="Streams"
-              blurb="Route messages into named categories with match rules and retention."
-            />
-          }
-        />
+        <Route path="streams" element={<StreamsPage />} />
+        <Route path="pipelines" element={<PipelinesPage />} />
         <Route
           path="dashboards"
           element={

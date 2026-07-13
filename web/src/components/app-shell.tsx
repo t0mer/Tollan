@@ -3,6 +3,7 @@ import { NavLink, Outlet } from "react-router-dom";
 import {
   Activity,
   Bell,
+  GitBranch,
   LayoutDashboard,
   Menu,
   Radio,
@@ -23,6 +24,7 @@ const NAV: NavItem[] = [
   { to: "/", label: "Overview", icon: Activity },
   { to: "/search", label: "Search", icon: Search },
   { to: "/streams", label: "Streams", icon: Waypoints },
+  { to: "/pipelines", label: "Pipelines", icon: GitBranch },
   { to: "/dashboards", label: "Dashboards", icon: LayoutDashboard },
   { to: "/alerts", label: "Alerts", icon: Bell },
   { to: "/inputs", label: "Inputs", icon: Radio },
