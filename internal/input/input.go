@@ -70,7 +70,9 @@ func (c Config) Validate() error {
 	if c.Type == "" {
 		return fmt.Errorf("input %q: type is required", c.ID)
 	}
-	if c.Bind == "" {
+	// The Docker input connects to the Engine API (Bind is an optional endpoint);
+	// all other inputs bind a listen address.
+	if c.Bind == "" && c.Type != "docker" {
 		return fmt.Errorf("input %q: bind address is required", c.ID)
 	}
 	return nil

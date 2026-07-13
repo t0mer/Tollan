@@ -28,6 +28,8 @@ func Build(cfg Config, pub Publisher, log *slog.Logger) (Input, error) {
 		return NewBeats(cfg, pub, il), nil
 	case "netflow", "ipfix":
 		return NewNetFlow(cfg, pub, il), nil
+	case "docker":
+		return NewDocker(cfg, pub, il), nil
 	default:
 		return nil, fmt.Errorf("input %q: unknown type %q", cfg.ID, cfg.Type)
 	}
