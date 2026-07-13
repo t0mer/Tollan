@@ -28,6 +28,7 @@ func (a *API) configRoutes(r chi.Router) {
 	r.Route("/lookups", func(r chi.Router) { a.entityRoutes(r, meta.KindLookup, validateLookup) })
 	r.Route("/dashboards", func(r chi.Router) { a.entityRoutes(r, meta.KindDashboard, validateNamed) })
 	r.Route("/event-definitions", func(r chi.Router) { a.entityRoutes(r, meta.KindEvent, validateEventDef) })
+	r.Route("/outputs", func(r chi.Router) { a.entityRoutes(r, meta.KindOutput, validateNamed) })
 }
 
 // validateEventDef validates an event definition: name required and the query

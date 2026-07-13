@@ -80,6 +80,7 @@ func (a *API) Routes() chi.Router {
 		r.Get("/events", a.handleListEvents)
 		r.Route("/saved-searches", a.savedRoutes)
 		r.Route("/notifications", a.notificationRoutes)
+		r.Route("/content-packs", a.contentPackRoutes)
 		a.configRoutes(r)
 	})
 	return r
