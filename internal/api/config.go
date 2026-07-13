@@ -25,6 +25,24 @@ func (a *API) configRoutes(r chi.Router) {
 	r.Route("/streams", func(r chi.Router) { a.entityRoutes(r, meta.KindStream, validateStream) })
 	r.Route("/pipelines", func(r chi.Router) { a.entityRoutes(r, meta.KindPipeline, validatePipeline) })
 	r.Route("/lookups", func(r chi.Router) { a.entityRoutes(r, meta.KindLookup, validateLookup) })
+	r.Route("/dashboards", func(r chi.Router) { a.entityRoutes(r, meta.KindDashboard, validateNamed) })
+}
+
+// validateNamed is a generic validator: it requires a "name" field and injects
+// the id, preserving all other fields. Used for UI-defined entities like
+// dashboards, events, channels and outputs.
+func validateNamed(id string, raw json.RawMessage) (string, json.RawMessage, error) {
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return "", nil, err
+	}
+	name, _ := m["name"].(string)
+	if name == "" {
+		return "", nil, errors.New("name is required")
+	}
+	m["id"] = id
+	out, err := json.Marshal(m)
+	return name, out, err
 }
 
 // entityRoutes registers list/create/update/delete for a kind.

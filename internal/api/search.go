@@ -1,6 +1,8 @@
 package api
 
 import (
+	"encoding/csv"
+	"encoding/json"
 	"net/http"
 	"sort"
 	"strconv"
@@ -149,6 +151,86 @@ func niceInterval(from, to time.Time) int64 {
 		}
 	}
 	return steps[len(steps)-1]
+}
+
+// aggregateResponse is the JSON body for GET /api/v1/search/aggregate.
+type aggregateResponse struct {
+	Rows []logstore.AggRow `json:"rows"`
+}
+
+func (a *API) handleAggregate(w http.ResponseWriter, r *http.Request) {
+	if a.deps.Store == nil {
+		writeError(w, http.StatusServiceUnavailable, "log store unavailable")
+		return
+	}
+	lq, err := parseSearchQuery(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	q := r.URL.Query()
+	spec := logstore.AggSpec{
+		GroupBy:     q.Get("group_by"),
+		Metric:      logstore.AggMetric(orDefault(q.Get("metric"), "count")),
+		MetricField: q.Get("metric_field"),
+		Limit:       parseInt(q.Get("limit"), 50),
+	}
+	rows, err := a.deps.Store.Aggregate(r.Context(), lq, spec)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if rows == nil {
+		rows = []logstore.AggRow{}
+	}
+	writeJSON(w, http.StatusOK, aggregateResponse{Rows: rows})
+}
+
+// handleExport streams the current search results as CSV or JSON.
+func (a *API) handleExport(w http.ResponseWriter, r *http.Request) {
+	if a.deps.Store == nil {
+		writeError(w, http.StatusServiceUnavailable, "log store unavailable")
+		return
+	}
+	lq, err := parseSearchQuery(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	lq.Limit = parseInt(r.URL.Query().Get("limit"), 10000)
+	if lq.Limit > 100000 {
+		lq.Limit = 100000
+	}
+	lq.Order = logstore.Descending
+	res, err := a.deps.Store.Search(r.Context(), lq)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if r.URL.Query().Get("format") == "json" {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Disposition", `attachment; filename="tollan-export.json"`)
+		_ = json.NewEncoder(w).Encode(res.Messages)
+		return
+	}
+	// CSV.
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", `attachment; filename="tollan-export.csv"`)
+	cw := csv.NewWriter(w)
+	_ = cw.Write([]string{"timestamp", "source", "stream", "level", "message"})
+	for _, m := range res.Messages {
+		lvl, _ := m.StringField("level")
+		_ = cw.Write([]string{m.Timestamp.Format(time.RFC3339), m.Source, m.Stream, lvl, m.Body})
+	}
+	cw.Flush()
+}
+
+func orDefault(v, def string) string {
+	if v == "" {
+		return def
+	}
+	return v
 }
 
 // fieldFacet lists the top values of a field in the current result sample.

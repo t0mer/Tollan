@@ -67,6 +67,8 @@ func (a *API) Routes() chi.Router {
 		r.Get("/search", a.handleSearch)
 		r.Get("/search/histogram", a.handleHistogram)
 		r.Get("/search/fields", a.handleFields)
+		r.Get("/search/aggregate", a.handleAggregate)
+		r.Get("/search/export", a.handleExport)
 		r.Get("/inputs", a.handleInputs)
 		r.Route("/saved-searches", a.savedRoutes)
 		a.configRoutes(r)
