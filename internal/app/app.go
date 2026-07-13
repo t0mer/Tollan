@@ -14,6 +14,7 @@ import (
 	"time"
 
 	tollan "github.com/t0mer/tollan"
+	"github.com/t0mer/tollan/internal/auth"
 	"github.com/t0mer/tollan/internal/config"
 	"github.com/t0mer/tollan/internal/crypto"
 	"github.com/t0mer/tollan/internal/event"
@@ -151,17 +152,19 @@ func New(cfg config.Config, log *slog.Logger) (*App, error) {
 	a.events = event.New(store, metaStore, notifier, cipher, m, log)
 
 	a.server = server.New(server.Options{
-		Config:   cfg.HTTP,
-		Logger:   log,
-		Metrics:  m,
-		APISpec:  tollan.OpenAPISpec(),
-		WebUI:    webUI,
-		Store:    store,
-		Inputs:   mgr,
-		Meta:     metaStore,
-		Reload:   a.Reload,
-		Cipher:   cipher,
-		Notifier: notifier,
+		Config:      cfg.HTTP,
+		Logger:      log,
+		Metrics:     m,
+		APISpec:     tollan.OpenAPISpec(),
+		WebUI:       webUI,
+		Store:       store,
+		Inputs:      mgr,
+		Meta:        metaStore,
+		Reload:      a.Reload,
+		Cipher:      cipher,
+		Notifier:    notifier,
+		AuthEnabled: cfg.Auth.Mode != "disabled",
+		Sessioner:   auth.NewSessioner(key),
 	})
 
 	// Load configured streams/pipelines/lookups so processing starts correctly.

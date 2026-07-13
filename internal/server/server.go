@@ -16,6 +16,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/t0mer/tollan/internal/api"
+	"github.com/t0mer/tollan/internal/auth"
 	"github.com/t0mer/tollan/internal/config"
 	"github.com/t0mer/tollan/internal/crypto"
 	"github.com/t0mer/tollan/internal/logstore"
@@ -53,6 +54,10 @@ type Options struct {
 	Cipher *crypto.Cipher
 	// Notifier sends test notifications.
 	Notifier *notify.Notifier
+	// AuthEnabled gates authentication.
+	AuthEnabled bool
+	// Sessioner signs session cookies.
+	Sessioner *auth.Sessioner
 }
 
 // New builds a Server with the routes mounted.
@@ -85,13 +90,15 @@ func (s *Server) routes(opts Options) http.Handler {
 	}
 
 	r.Mount("/api", api.New(api.Deps{
-		Spec:   opts.APISpec,
-		Store:  opts.Store,
-		Inputs: opts.Inputs,
-		Meta:     opts.Meta,
-		Reload:   opts.Reload,
-		Cipher:   opts.Cipher,
-		Notifier: opts.Notifier,
+		Spec:        opts.APISpec,
+		Store:       opts.Store,
+		Inputs:      opts.Inputs,
+		Meta:        opts.Meta,
+		Reload:      opts.Reload,
+		Cipher:      opts.Cipher,
+		Notifier:    opts.Notifier,
+		AuthEnabled: opts.AuthEnabled,
+		Sessioner:   opts.Sessioner,
 	}).Routes())
 
 	if opts.WebUI != nil {
