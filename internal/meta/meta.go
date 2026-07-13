@@ -51,6 +51,9 @@ CREATE TABLE IF NOT EXISTS saved_searches (
 	if _, err := s.db.Exec(ddl); err != nil {
 		return fmt.Errorf("migrating metadata db: %w", err)
 	}
+	if err := s.migrateEntities(); err != nil {
+		return fmt.Errorf("migrating entities: %w", err)
+	}
 	return nil
 }
 
