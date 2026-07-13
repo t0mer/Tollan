@@ -25,6 +25,8 @@ tags:
     description: Pipelines, rules and lookup tables.
   - name: dashboards
     description: Dashboards and widgets.
+  - name: alerts
+    description: Events, definitions and notification channels.
 paths:
   /health:
     get:
@@ -209,6 +211,46 @@ paths:
       tags: [dashboards]
       summary: Delete a dashboard.
       operationId: deleteDashboard
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "204": { description: Deleted. } }
+  /api/v1/events:
+    get:
+      tags: [alerts]
+      summary: List fired events (the event stream).
+      operationId: listEvents
+      responses: { "200": { description: Fired events. } }
+  /api/v1/event-definitions:
+    get: { tags: [alerts], summary: List event definitions., operationId: listEventDefs, responses: { "200": { description: Definitions. } } }
+    post: { tags: [alerts], summary: Create an event definition., operationId: createEventDef, responses: { "201": { description: Created. } } }
+  /api/v1/event-definitions/{id}:
+    put:
+      tags: [alerts]
+      summary: Update an event definition.
+      operationId: updateEventDef
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: Updated. } }
+    delete:
+      tags: [alerts]
+      summary: Delete an event definition.
+      operationId: deleteEventDef
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "204": { description: Deleted. } }
+  /api/v1/notifications:
+    get: { tags: [alerts], summary: List notification channels (secrets masked)., operationId: listChannels, responses: { "200": { description: Channels. } } }
+    post: { tags: [alerts], summary: Create a channel., operationId: createChannel, responses: { "201": { description: Created. } } }
+  /api/v1/notifications/test:
+    post: { tags: [alerts], summary: Send a real test notification., operationId: testChannel, responses: { "200": { description: Sent. }, "502": { description: Delivery failed. } } }
+  /api/v1/notifications/{id}:
+    put:
+      tags: [alerts]
+      summary: Update a channel.
+      operationId: updateChannel
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: Updated. } }
+    delete:
+      tags: [alerts]
+      summary: Delete a channel.
+      operationId: deleteChannel
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses: { "204": { description: Deleted. } }
   /api/v1/inputs:
