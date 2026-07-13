@@ -25,11 +25,11 @@ const (
 
 // Config describes a lookup table.
 type Config struct {
-	Name       string     `json:"name"`
-	SourceType SourceType `json:"source_type"`
-	Source     string     `json:"source"` // path or URL
-	KeyColumn  string     `json:"key_column"`
-	ValueColumn string    `json:"value_column"`
+	Name        string     `json:"name"`
+	SourceType  SourceType `json:"source_type"`
+	Source      string     `json:"source"` // path or URL
+	KeyColumn   string     `json:"key_column"`
+	ValueColumn string     `json:"value_column"`
 }
 
 // Manager holds loaded lookup tables.

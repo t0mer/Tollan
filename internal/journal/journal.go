@@ -31,9 +31,9 @@ type Record struct {
 
 // Default sizing.
 const (
-	DefaultMaxSegmentBytes int64 = 16 << 20  // 16 MiB
-	DefaultMaxTotalBytes   int64 = 1 << 30   // 1 GiB
-	headerSize                   = 12         // 8-byte seq + 4-byte length
+	DefaultMaxSegmentBytes int64 = 16 << 20 // 16 MiB
+	DefaultMaxTotalBytes   int64 = 1 << 30  // 1 GiB
+	headerSize                   = 12       // 8-byte seq + 4-byte length
 	segPrefix                    = "seg-"
 	segSuffix                    = ".jnl"
 	offsetFile                   = "committed.offset"
