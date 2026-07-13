@@ -65,20 +65,45 @@ type Options struct {
 	Arguments []string
 	// UserName, if set, runs the Linux service as that user.
 	UserName string
+	// WorkingDirectory sets the unit's WorkingDirectory (usually the data dir).
+	WorkingDirectory string
 }
+
+// systemdScript is a hardened unit template: restart on failure, run as a
+// dedicated user, and grant CAP_NET_BIND_SERVICE so inputs can bind privileged
+// ports (e.g. 514) if configured.
+const systemdScript = `[Unit]
+Description={{Description}}
+ConditionFileIsExecutable={{Path | cmdEscape}}
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart={{Path | cmdEscape}}{{range Arguments}} {{. | cmd}}{{end}}
+{{if WorkingDirectory}}WorkingDirectory={{WorkingDirectory | cmdEscape}}
+{{end}}{{if UserName}}User={{UserName}}
+{{end}}Restart=on-failure
+RestartSec=5
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+`
 
 // New builds a kardianos service bound to the given App.
 func New(a *app.App, log *slog.Logger, opts Options) (service.Service, error) {
 	cfg := &service.Config{
-		Name:        serviceName,
-		DisplayName: serviceDisplayName,
-		Description: serviceDescription,
-		Arguments:   opts.Arguments,
-		UserName:    opts.UserName,
+		Name:             serviceName,
+		DisplayName:      serviceDisplayName,
+		Description:      serviceDescription,
+		Arguments:        opts.Arguments,
+		UserName:         opts.UserName,
+		WorkingDirectory: opts.WorkingDirectory,
 		Option: service.KeyValue{
-			// Restart on failure; §12 hardening (CAP_NET_BIND_SERVICE,
-			// dedicated user) is layered in during the service phase.
-			"Restart": "on-failure",
+			"Restart":       "on-failure",
+			"SystemdScript": systemdScript,
 		},
 	}
 	prog := &program{app: a, log: log}
@@ -87,6 +112,12 @@ func New(a *app.App, log *slog.Logger, opts Options) (service.Service, error) {
 		return nil, fmt.Errorf("creating service: %w", err)
 	}
 	return svc, nil
+}
+
+// Interactive reports whether the process is running interactively (not under a
+// service manager). Used to decide where logs should go.
+func Interactive() bool {
+	return service.Interactive()
 }
 
 // Run executes under the service manager (or interactively), blocking until the

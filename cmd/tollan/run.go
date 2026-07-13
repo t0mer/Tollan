@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 
@@ -11,6 +12,24 @@ import (
 	"github.com/t0mer/tollan/internal/config"
 	"github.com/t0mer/tollan/internal/svc"
 )
+
+// logWriter returns stdout for interactive runs, and additionally a rotating-ish
+// log file in the data dir when running under a service manager (so Windows SCM
+// and systemd capture output even without a console).
+func logWriter(cfg config.Config) io.Writer {
+	if svc.Interactive() {
+		return os.Stdout
+	}
+	if err := os.MkdirAll(cfg.DataDir, 0o750); err != nil {
+		return os.Stdout
+	}
+	f, err := os.OpenFile(filepath.Join(cfg.DataDir, "tollan.log"),
+		os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o640)
+	if err != nil {
+		return os.Stdout
+	}
+	return io.MultiWriter(os.Stdout, f)
+}
 
 // registerConfigFlags attaches the shared configuration flags as persistent
 // flags on the root command.
@@ -32,7 +51,7 @@ func runCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			log := config.NewLogger(os.Stdout, cfg.Log)
+			log := config.NewLogger(logWriter(cfg), cfg.Log)
 			a, err := app.New(cfg, log)
 			if err != nil {
 				return err
