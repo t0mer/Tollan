@@ -4,6 +4,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -11,6 +12,7 @@ import (
 
 	"github.com/t0mer/tollan/internal/input"
 	"github.com/t0mer/tollan/internal/logstore"
+	"github.com/t0mer/tollan/internal/meta"
 	"github.com/t0mer/tollan/internal/version"
 )
 
@@ -19,12 +21,28 @@ type InputLister interface {
 	List() []input.Status
 }
 
+// ConfigStore is the subset of the metadata store for config entities.
+type ConfigStore interface {
+	ListEntities(ctx context.Context, kind string) ([]meta.Entity, error)
+	GetEntity(ctx context.Context, kind, id string) (meta.Entity, error)
+	PutEntity(ctx context.Context, kind, id, name string, data json.RawMessage) (meta.Entity, error)
+	DeleteEntity(ctx context.Context, kind, id string) error
+}
+
+// MetaStore combines saved searches and config-entity storage.
+type MetaStore interface {
+	SavedSearchStore
+	ConfigStore
+}
+
 // Deps are the API handler dependencies.
 type Deps struct {
 	Spec   []byte
 	Store  logstore.Store
 	Inputs InputLister
-	Saved  SavedSearchStore
+	Meta   MetaStore
+	// Reload re-applies config to the running engine after a config change.
+	Reload func(context.Context) error
 }
 
 // API holds the handler dependencies.
@@ -50,8 +68,8 @@ func (a *API) Routes() chi.Router {
 		r.Get("/search/histogram", a.handleHistogram)
 		r.Get("/search/fields", a.handleFields)
 		r.Get("/inputs", a.handleInputs)
-		r.Get("/streams", a.handleStreams)
 		r.Route("/saved-searches", a.savedRoutes)
+		a.configRoutes(r)
 	})
 	return r
 }

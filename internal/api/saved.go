@@ -33,11 +33,11 @@ func (a *API) savedRoutes(r chi.Router) {
 }
 
 func (a *API) handleListSaved(w http.ResponseWriter, r *http.Request) {
-	if a.deps.Saved == nil {
+	if a.deps.Meta == nil {
 		writeJSON(w, http.StatusOK, []meta.SavedSearch{})
 		return
 	}
-	list, err := a.deps.Saved.ListSavedSearches(r.Context())
+	list, err := a.deps.Meta.ListSavedSearches(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -49,7 +49,7 @@ func (a *API) handleListSaved(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleCreateSaved(w http.ResponseWriter, r *http.Request) {
-	if a.deps.Saved == nil {
+	if a.deps.Meta == nil {
 		writeError(w, http.StatusServiceUnavailable, "metadata store unavailable")
 		return
 	}
@@ -58,7 +58,7 @@ func (a *API) handleCreateSaved(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	ss, err := a.deps.Saved.CreateSavedSearch(r.Context(), body.Name, body.Query, body.TimeRange)
+	ss, err := a.deps.Meta.CreateSavedSearch(r.Context(), body.Name, body.Query, body.TimeRange)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -67,7 +67,7 @@ func (a *API) handleCreateSaved(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleUpdateSaved(w http.ResponseWriter, r *http.Request) {
-	if a.deps.Saved == nil {
+	if a.deps.Meta == nil {
 		writeError(w, http.StatusServiceUnavailable, "metadata store unavailable")
 		return
 	}
@@ -77,7 +77,7 @@ func (a *API) handleUpdateSaved(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	ss, err := a.deps.Saved.UpdateSavedSearch(r.Context(), id, body.Name, body.Query, body.TimeRange)
+	ss, err := a.deps.Meta.UpdateSavedSearch(r.Context(), id, body.Name, body.Query, body.TimeRange)
 	if errors.Is(err, meta.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "saved search not found")
 		return
@@ -90,12 +90,12 @@ func (a *API) handleUpdateSaved(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) handleDeleteSaved(w http.ResponseWriter, r *http.Request) {
-	if a.deps.Saved == nil {
+	if a.deps.Meta == nil {
 		writeError(w, http.StatusServiceUnavailable, "metadata store unavailable")
 		return
 	}
 	id := chi.URLParam(r, "id")
-	err := a.deps.Saved.DeleteSavedSearch(r.Context(), id)
+	err := a.deps.Meta.DeleteSavedSearch(r.Context(), id)
 	if errors.Is(err, meta.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "saved search not found")
 		return

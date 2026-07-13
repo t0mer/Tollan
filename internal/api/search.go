@@ -10,7 +10,6 @@ import (
 	"github.com/t0mer/tollan/internal/logstore"
 	"github.com/t0mer/tollan/internal/schema"
 	"github.com/t0mer/tollan/internal/search/query"
-	"github.com/t0mer/tollan/internal/stream"
 )
 
 // searchResponse is the JSON body returned by GET /api/v1/search.
@@ -244,18 +243,6 @@ func stringifyValue(v any) string {
 	default:
 		return ""
 	}
-}
-
-// streamInfo describes a stream for the API.
-type streamInfo struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-}
-
-func (a *API) handleStreams(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, []streamInfo{
-		{ID: stream.DefaultID, Name: stream.DefaultName},
-	})
 }
 
 // parseTime accepts an empty string (zero time), an RFC3339 timestamp, or a
