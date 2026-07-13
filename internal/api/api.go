@@ -48,11 +48,13 @@ type UserStore interface {
 	DeleteToken(ctx context.Context, userID, id string) error
 }
 
-// MetaStore combines saved searches, config-entity, event and user storage.
+// MetaStore combines saved searches, config-entity, event, user and agent
+// storage.
 type MetaStore interface {
 	SavedSearchStore
 	ConfigStore
 	UserStore
+	AgentStore
 	ListEvents(ctx context.Context, limit int) ([]meta.Event, error)
 }
 
@@ -72,6 +74,8 @@ type Deps struct {
 	AuthEnabled bool
 	// Sessioner signs session cookies.
 	Sessioner *auth.Sessioner
+	// EnrollmentToken guards agent registration (empty = open enrollment).
+	EnrollmentToken string
 }
 
 // API holds the handler dependencies.
@@ -104,6 +108,7 @@ func (a *API) Routes() chi.Router {
 		r.Get("/search/export", a.handleExport)
 		r.Get("/inputs", a.handleInputs)
 		r.Get("/events", a.handleListEvents)
+		r.Route("/agents", a.agentRoutes)
 		r.Route("/saved-searches", a.savedRoutes)
 		r.Route("/notifications", a.notificationRoutes)
 		r.Route("/content-packs", a.contentPackRoutes)

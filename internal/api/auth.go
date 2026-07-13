@@ -39,7 +39,7 @@ func (a *API) authMiddleware(next http.Handler) http.Handler {
 		// Always allow the auth entrypoints and health.
 		p := r.URL.Path
 		if strings.HasPrefix(p, "/api/v1/auth/login") || strings.HasPrefix(p, "/api/v1/auth/setup") ||
-			strings.HasPrefix(p, "/api/v1/auth/status") {
+			strings.HasPrefix(p, "/api/v1/auth/status") || isAgentSelfService(p) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -67,6 +67,17 @@ func (a *API) authMiddleware(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, withUser(r, user))
 	})
+}
+
+// isAgentSelfService reports whether a path is an agent's own enrollment,
+// heartbeat or config poll (authenticated by enrollment token / agent id, not a
+// user session).
+func isAgentSelfService(p string) bool {
+	if p == "/api/v1/agents/register" {
+		return true
+	}
+	return strings.HasPrefix(p, "/api/v1/agents/") &&
+		(strings.HasSuffix(p, "/heartbeat") || strings.HasSuffix(p, "/config"))
 }
 
 func withUser(r *http.Request, u currentUser) *http.Request {

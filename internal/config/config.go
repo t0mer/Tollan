@@ -32,6 +32,14 @@ type Config struct {
 	Inputs    []input.Config  `mapstructure:"inputs"`
 	GeoIP     GeoIPConfig     `mapstructure:"geoip"`
 	Retention RetentionConfig `mapstructure:"retention"`
+	Agent     AgentConfig     `mapstructure:"agent"`
+}
+
+// AgentConfig controls fleet enrollment.
+type AgentConfig struct {
+	// EnrollmentToken, if set, is required to register a new agent. Empty means
+	// open enrollment (lab use).
+	EnrollmentToken string `mapstructure:"enrollment_token"`
 }
 
 // GeoIPConfig points at an optional MaxMind/IPinfo .mmdb database.

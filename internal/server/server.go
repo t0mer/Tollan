@@ -58,6 +58,8 @@ type Options struct {
 	AuthEnabled bool
 	// Sessioner signs session cookies.
 	Sessioner *auth.Sessioner
+	// EnrollmentToken guards agent registration.
+	EnrollmentToken string
 }
 
 // New builds a Server with the routes mounted.
@@ -90,15 +92,16 @@ func (s *Server) routes(opts Options) http.Handler {
 	}
 
 	r.Mount("/api", api.New(api.Deps{
-		Spec:        opts.APISpec,
-		Store:       opts.Store,
-		Inputs:      opts.Inputs,
-		Meta:        opts.Meta,
-		Reload:      opts.Reload,
-		Cipher:      opts.Cipher,
-		Notifier:    opts.Notifier,
-		AuthEnabled: opts.AuthEnabled,
-		Sessioner:   opts.Sessioner,
+		Spec:            opts.APISpec,
+		Store:           opts.Store,
+		Inputs:          opts.Inputs,
+		Meta:            opts.Meta,
+		Reload:          opts.Reload,
+		Cipher:          opts.Cipher,
+		Notifier:        opts.Notifier,
+		AuthEnabled:     opts.AuthEnabled,
+		Sessioner:       opts.Sessioner,
+		EnrollmentToken: opts.EnrollmentToken,
 	}).Routes())
 
 	if opts.WebUI != nil {
