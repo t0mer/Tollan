@@ -15,6 +15,8 @@ servers:
 tags:
   - name: system
     description: Health and build information.
+  - name: auth
+    description: Authentication, users and API tokens.
   - name: search
     description: Log search.
   - name: inputs
@@ -43,6 +45,42 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Health"
+  /api/v1/auth/status:
+    get: { tags: [auth], summary: Auth mode and whether first-run setup is needed., operationId: authStatus, security: [], responses: { "200": { description: Status. } } }
+  /api/v1/auth/setup:
+    post: { tags: [auth], summary: Create the first admin (first-run only)., operationId: authSetup, security: [], responses: { "201": { description: Created. }, "409": { description: Already set up. } } }
+  /api/v1/auth/login:
+    post: { tags: [auth], summary: Log in (sets a session cookie)., operationId: authLogin, security: [], responses: { "200": { description: Logged in. }, "401": { description: Invalid credentials. } } }
+  /api/v1/auth/logout:
+    post: { tags: [auth], summary: Log out., operationId: authLogout, responses: { "204": { description: Logged out. } } }
+  /api/v1/auth/me:
+    get: { tags: [auth], summary: Current user., operationId: authMe, responses: { "200": { description: User. } } }
+  /api/v1/users:
+    get: { tags: [auth], summary: List users (admin)., operationId: listUsers, responses: { "200": { description: Users. } } }
+    post: { tags: [auth], summary: Create a user (admin)., operationId: createUser, responses: { "201": { description: Created. } } }
+  /api/v1/users/{id}:
+    put:
+      tags: [auth]
+      summary: Update a user's role/password (admin).
+      operationId: updateUser
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "204": { description: Updated. } }
+    delete:
+      tags: [auth]
+      summary: Delete a user (admin).
+      operationId: deleteUser
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "204": { description: Deleted. } }
+  /api/v1/tokens:
+    get: { tags: [auth], summary: List your API tokens., operationId: listTokens, responses: { "200": { description: Tokens. } } }
+    post: { tags: [auth], summary: Create an API token (returned once)., operationId: createToken, responses: { "201": { description: Created. } } }
+  /api/v1/tokens/{id}:
+    delete:
+      tags: [auth]
+      summary: Revoke an API token.
+      operationId: deleteToken
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "204": { description: Revoked. } }
   /api/v1/version:
     get:
       tags: [system]
