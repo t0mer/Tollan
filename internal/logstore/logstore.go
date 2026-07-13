@@ -53,6 +53,13 @@ type Result struct {
 	Total int
 }
 
+// Bucket is a histogram bar: a count of matching messages in the half-open
+// interval [StartMillis, StartMillis+IntervalMillis).
+type Bucket struct {
+	StartMillis int64 `json:"start_ms"`
+	Count       int   `json:"count"`
+}
+
 // Store persists and searches log messages.
 type Store interface {
 	// Store persists a batch of messages. Messages are partitioned by the UTC
@@ -60,6 +67,9 @@ type Store interface {
 	Store(ctx context.Context, msgs []*schema.Message) error
 	// Search returns messages matching the query.
 	Search(ctx context.Context, q Query) (Result, error)
+	// Histogram returns match counts bucketed into fixed intervals across the
+	// query's time range. intervalMillis must be positive.
+	Histogram(ctx context.Context, q Query, intervalMillis int64) ([]Bucket, error)
 	// Days returns the UTC day identifiers (YYYY-MM-DD) that have partitions,
 	// oldest first.
 	Days(ctx context.Context) ([]string, error)

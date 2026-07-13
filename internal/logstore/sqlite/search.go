@@ -241,6 +241,60 @@ func searchDay(ctx context.Context, db *sql.DB, q logstore.Query, fromMs, toMs i
 	return scanMessages(rows)
 }
 
+// Histogram implements logstore.Store by bucketing match counts per interval and
+// merging across day partitions.
+func (s *Store) Histogram(ctx context.Context, q logstore.Query, intervalMillis int64) ([]logstore.Bucket, error) {
+	if intervalMillis <= 0 {
+		return nil, fmt.Errorf("histogram interval must be positive")
+	}
+	days, err := s.daysInRange(q.From, q.To)
+	if err != nil {
+		return nil, err
+	}
+	fromMs, toMs := boundsMillis(q.From, q.To)
+	counts := make(map[int64]int)
+	for _, day := range days {
+		db, err := s.db(day)
+		if err != nil {
+			return nil, err
+		}
+		if err := histogramDay(ctx, db, q, fromMs, toMs, intervalMillis, counts); err != nil {
+			return nil, err
+		}
+	}
+	buckets := make([]logstore.Bucket, 0, len(counts))
+	for start, c := range counts {
+		buckets = append(buckets, logstore.Bucket{StartMillis: start, Count: c})
+	}
+	sort.Slice(buckets, func(i, j int) bool { return buckets[i].StartMillis < buckets[j].StartMillis })
+	return buckets, nil
+}
+
+func histogramDay(ctx context.Context, db *sql.DB, q logstore.Query, fromMs, toMs, interval int64, counts map[int64]int) error {
+	where, args, err := whereClause(q, fromMs, toMs)
+	if err != nil {
+		return err
+	}
+	// Floor each timestamp to its bucket start.
+	sql := fmt.Sprintf(
+		"SELECT (m.ts/%d)*%d AS bucket, COUNT(*) FROM messages m WHERE %s GROUP BY bucket",
+		interval, interval, where)
+	rows, err := db.QueryContext(ctx, sql, args...)
+	if err != nil {
+		return fmt.Errorf("histogram query: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var start int64
+		var c int
+		if err := rows.Scan(&start, &c); err != nil {
+			return err
+		}
+		counts[start] += c
+	}
+	return rows.Err()
+}
+
 func countDay(ctx context.Context, db *sql.DB, q logstore.Query, fromMs, toMs int64) (int, error) {
 	where, args, err := whereClause(q, fromMs, toMs)
 	if err != nil {

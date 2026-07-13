@@ -196,3 +196,36 @@ func ids(msgs []*schema.Message) []string {
 	}
 	return out
 }
+
+func TestHistogram(t *testing.T) {
+	s, _ := Open(t.TempDir())
+	defer s.Close()
+	ctx := context.Background()
+	base := time.Date(2026, 7, 13, 10, 0, 0, 0, time.UTC)
+	var in []*schema.Message
+	// 3 in first minute, 2 in third minute.
+	for _, off := range []int{0, 10, 20, 120, 130} {
+		in = append(in, msg("m", base.Add(time.Duration(off)*time.Second), "x", "default"))
+	}
+	for i := range in {
+		in[i].ID = fmtID(i)
+	}
+	if err := s.Store(ctx, in); err != nil {
+		t.Fatal(err)
+	}
+	buckets, err := s.Histogram(ctx, logstore.Query{}, 60_000) // 1-minute buckets
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(buckets) != 2 {
+		t.Fatalf("buckets = %d, want 2", len(buckets))
+	}
+	if buckets[0].Count != 3 || buckets[1].Count != 2 {
+		t.Fatalf("counts = %d,%d want 3,2", buckets[0].Count, buckets[1].Count)
+	}
+	if buckets[1].StartMillis-buckets[0].StartMillis != 120_000 {
+		t.Fatalf("bucket spacing = %d", buckets[1].StartMillis-buckets[0].StartMillis)
+	}
+}
+
+func fmtID(i int) string { return "h" + string(rune('0'+i)) }
