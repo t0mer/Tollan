@@ -90,6 +90,40 @@ func (s *Store) DropBefore(_ context.Context, cutoff time.Time) (int, error) {
 	return dropped, nil
 }
 
+// DeleteStreamBefore deletes rows of a stream older than cutoff across all
+// partitions (per-stream retention). FTS rows are cleaned via the external-content
+// delete idiom.
+func (s *Store) DeleteStreamBefore(ctx context.Context, streamID string, cutoff time.Time) (int64, error) {
+	days, err := s.listDays()
+	if err != nil {
+		return 0, err
+	}
+	cutMs := cutoff.UTC().UnixMilli()
+	var total int64
+	for _, day := range days {
+		db, err := s.db(day)
+		if err != nil {
+			return total, err
+		}
+		// Keep the FTS index consistent: delete matching FTS rows first, then the
+		// base rows.
+		if _, err := db.ExecContext(ctx,
+			`INSERT INTO messages_fts(messages_fts, rowid, body)
+			 SELECT 'delete', rowid, body FROM messages WHERE stream = ? AND ts < ?`,
+			streamID, cutMs); err != nil {
+			return total, fmt.Errorf("pruning fts: %w", err)
+		}
+		res, err := db.ExecContext(ctx,
+			`DELETE FROM messages WHERE stream = ? AND ts < ?`, streamID, cutMs)
+		if err != nil {
+			return total, fmt.Errorf("pruning stream: %w", err)
+		}
+		n, _ := res.RowsAffected()
+		total += n
+	}
+	return total, nil
+}
+
 // Search implements logstore.Store by fanning out over the partitions in range.
 func (s *Store) Search(ctx context.Context, q logstore.Query) (logstore.Result, error) {
 	limit := q.Limit

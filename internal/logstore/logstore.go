@@ -78,6 +78,10 @@ type Store interface {
 	// DropBefore deletes whole day partitions strictly older than the cutoff
 	// day (UTC) and returns the number of partitions removed.
 	DropBefore(ctx context.Context, cutoff time.Time) (int, error)
+	// DeleteStreamBefore deletes rows of a stream older than cutoff across all
+	// partitions and returns the number of rows removed. Used for per-stream
+	// retention that is shorter than the global partition retention.
+	DeleteStreamBefore(ctx context.Context, streamID string, cutoff time.Time) (int64, error)
 	// Close releases all open partition handles.
 	Close() error
 }
