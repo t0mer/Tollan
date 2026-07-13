@@ -219,11 +219,31 @@ export type Channel = {
   password?: string;
 };
 
+export type Output = {
+  id?: string;
+  name: string;
+  type: "gelf" | "tcp_raw" | "tcp_syslog" | "stdout";
+  enabled: boolean;
+  stream?: string;
+  address?: string;
+  protocol?: string;
+};
+
+export type ImportChange = { kind: string; id: string; name: string; action: string };
+export type ImportResult = { dry_run: boolean; changes: ImportChange[] };
+
 export const streams = crud<Stream>("streams");
 export const pipelines = crud<Pipeline>("pipelines");
 export const lookups = crud<LookupConfig>("lookups");
 export const dashboards = crud<Dashboard>("dashboards");
 export const eventDefinitions = crud<EventDefinition>("event-definitions");
+export const outputs = crud<Output>("outputs");
+
+export const contentPacks = {
+  exportUrl: () => "/api/v1/content-packs/export",
+  import: (bundle: unknown, dryRun: boolean) =>
+    apiSend<ImportResult>("POST", `/api/v1/content-packs/import?dry_run=${dryRun}`, bundle),
+};
 
 export const channels = {
   list: () => apiGet<Channel[]>("/api/v1/notifications"),

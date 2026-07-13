@@ -9,6 +9,8 @@ import { DashboardsPage } from "@/pages/dashboards";
 import { DashboardViewPage } from "@/pages/dashboard-view";
 import { AlertsPage } from "@/pages/alerts";
 import { NotificationsPage } from "@/pages/notifications";
+import { OutputsPage } from "@/pages/outputs";
+import { SystemPage } from "@/pages/system";
 import { PlaceholderPage } from "@/pages/placeholder";
 
 export default function App() {
@@ -23,6 +25,7 @@ export default function App() {
         <Route path="dashboards/:id" element={<DashboardViewPage />} />
         <Route path="alerts" element={<AlertsPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
+        <Route path="outputs" element={<OutputsPage />} />
         <Route path="inputs" element={<InputsPage />} />
         <Route
           path="fleet"
@@ -33,15 +36,7 @@ export default function App() {
             />
           }
         />
-        <Route
-          path="system"
-          element={
-            <PlaceholderPage
-              title="System"
-              blurb="Users, roles, API tokens, lookup tables, content packs and settings."
-            />
-          }
-        />
+        <Route path="system" element={<SystemPage />} />
         <Route path="*" element={<PlaceholderPage title="Not found" blurb="Nothing here." />} />
       </Route>
     </Routes>
