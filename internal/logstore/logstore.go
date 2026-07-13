@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/t0mer/tollan/internal/schema"
+	"github.com/t0mer/tollan/internal/search/query"
 )
 
 // Direction is the sort order of search results by event timestamp.
@@ -28,8 +29,11 @@ const (
 type Query struct {
 	From time.Time
 	To   time.Time
-	// Text is a full-text match expression over the message body (FTS5 syntax).
-	// Empty matches all messages in range.
+	// Expr is the parsed query AST. When nil, Text (if any) is used as a simple
+	// full-text term; when both are empty, all messages in range match.
+	Expr query.Node
+	// Text is a plain full-text match over the message body. Ignored when Expr
+	// is set. Convenient for internal callers and tests.
 	Text string
 	// Stream, if set, restricts results to that stream id.
 	Stream string

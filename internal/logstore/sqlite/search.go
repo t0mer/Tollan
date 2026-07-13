@@ -12,6 +12,7 @@ import (
 
 	"github.com/t0mer/tollan/internal/logstore"
 	"github.com/t0mer/tollan/internal/schema"
+	"github.com/t0mer/tollan/internal/search/query"
 )
 
 // Store satisfies the logstore.Store interface.
@@ -186,30 +187,53 @@ func orderSQL(order logstore.Direction) string {
 	return "DESC"
 }
 
-func searchDay(ctx context.Context, db *sql.DB, q logstore.Query, fromMs, toMs int64, order logstore.Direction, limit int) ([]*schema.Message, error) {
-	var (
-		sb   strings.Builder
-		args []any
-	)
-	if q.Text != "" {
-		sb.WriteString(`SELECT m.id, m.ts, m.received, m.source, m.stream, m.input_id, m.body, m.fields
-FROM messages m JOIN messages_fts f ON f.rowid = m.rowid
-WHERE f.body MATCH ? AND m.ts BETWEEN ? AND ?`)
-		args = append(args, q.Text, fromMs, toMs)
-	} else {
-		sb.WriteString(`SELECT id, ts, received, source, stream, input_id, body, fields
-FROM messages
-WHERE ts BETWEEN ? AND ?`)
-		args = append(args, fromMs, toMs)
+// whereClause builds the shared WHERE fragment (compiled expression + time range
+// + stream) and its args.
+func whereClause(q logstore.Query, fromMs, toMs int64) (string, []any, error) {
+	expr, exprArgs, err := compileQuery(q)
+	if err != nil {
+		return "", nil, err
 	}
+	sb := strings.Builder{}
+	args := make([]any, 0, len(exprArgs)+3)
+
+	sb.WriteString("(")
+	sb.WriteString(expr)
+	sb.WriteString(") AND m.ts BETWEEN ? AND ?")
+	args = append(args, exprArgs...)
+	args = append(args, fromMs, toMs)
 	if q.Stream != "" {
-		sb.WriteString(" AND stream = ?")
+		sb.WriteString(" AND m.stream = ?")
 		args = append(args, q.Stream)
 	}
-	fmt.Fprintf(&sb, " ORDER BY ts %s LIMIT ?", orderSQL(order))
+	return sb.String(), args, nil
+}
+
+// compileQuery resolves the effective query expression: the AST if present,
+// otherwise a plain full-text term from Text, otherwise match-all.
+func compileQuery(q logstore.Query) (string, []any, error) {
+	node := q.Expr
+	if node == nil {
+		if q.Text != "" {
+			node = &query.Term{Value: q.Text}
+		} else {
+			node = query.MatchAll{}
+		}
+	}
+	return compileExpr(node)
+}
+
+func searchDay(ctx context.Context, db *sql.DB, q logstore.Query, fromMs, toMs int64, order logstore.Direction, limit int) ([]*schema.Message, error) {
+	where, args, err := whereClause(q, fromMs, toMs)
+	if err != nil {
+		return nil, err
+	}
+	sql := "SELECT m.id, m.ts, m.received, m.source, m.stream, m.input_id, m.body, m.fields " +
+		"FROM messages m WHERE " + where +
+		fmt.Sprintf(" ORDER BY m.ts %s LIMIT ?", orderSQL(order))
 	args = append(args, limit)
 
-	rows, err := db.QueryContext(ctx, sb.String(), args...)
+	rows, err := db.QueryContext(ctx, sql, args...)
 	if err != nil {
 		return nil, fmt.Errorf("search query: %w", err)
 	}
@@ -218,24 +242,12 @@ WHERE ts BETWEEN ? AND ?`)
 }
 
 func countDay(ctx context.Context, db *sql.DB, q logstore.Query, fromMs, toMs int64) (int, error) {
-	var (
-		sb   strings.Builder
-		args []any
-	)
-	if q.Text != "" {
-		sb.WriteString(`SELECT COUNT(*) FROM messages m JOIN messages_fts f ON f.rowid = m.rowid
-WHERE f.body MATCH ? AND m.ts BETWEEN ? AND ?`)
-		args = append(args, q.Text, fromMs, toMs)
-	} else {
-		sb.WriteString(`SELECT COUNT(*) FROM messages WHERE ts BETWEEN ? AND ?`)
-		args = append(args, fromMs, toMs)
-	}
-	if q.Stream != "" {
-		sb.WriteString(" AND stream = ?")
-		args = append(args, q.Stream)
+	where, args, err := whereClause(q, fromMs, toMs)
+	if err != nil {
+		return 0, err
 	}
 	var n int
-	if err := db.QueryRowContext(ctx, sb.String(), args...).Scan(&n); err != nil {
+	if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM messages m WHERE "+where, args...).Scan(&n); err != nil {
 		return 0, fmt.Errorf("count query: %w", err)
 	}
 	return n, nil
