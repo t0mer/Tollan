@@ -60,6 +60,36 @@ type Bucket struct {
 	Count       int   `json:"count"`
 }
 
+// AggMetric is a widget aggregation metric.
+type AggMetric string
+
+const (
+	MetricCount AggMetric = "count"
+	MetricSum   AggMetric = "sum"
+	MetricAvg   AggMetric = "avg"
+	MetricMin   AggMetric = "min"
+	MetricMax   AggMetric = "max"
+	MetricP50   AggMetric = "p50"
+	MetricP90   AggMetric = "p90"
+	MetricP95   AggMetric = "p95"
+	MetricP99   AggMetric = "p99"
+)
+
+// AggSpec describes an aggregation: group by a field (optional) and compute a
+// metric, optionally over a numeric field.
+type AggSpec struct {
+	GroupBy     string    // group field ("" → single aggregate row)
+	Metric      AggMetric // count/sum/avg/min/max/pNN
+	MetricField string    // numeric field for non-count metrics
+	Limit       int       // top-N groups (0 → default)
+}
+
+// AggRow is one aggregation result.
+type AggRow struct {
+	Key   string  `json:"key"`
+	Value float64 `json:"value"`
+}
+
 // Store persists and searches log messages.
 type Store interface {
 	// Store persists a batch of messages. Messages are partitioned by the UTC
@@ -70,6 +100,8 @@ type Store interface {
 	// Histogram returns match counts bucketed into fixed intervals across the
 	// query's time range. intervalMillis must be positive.
 	Histogram(ctx context.Context, q Query, intervalMillis int64) ([]Bucket, error)
+	// Aggregate groups matching messages and computes a metric per group.
+	Aggregate(ctx context.Context, q Query, spec AggSpec) ([]AggRow, error)
 	// Days returns the UTC day identifiers (YYYY-MM-DD) that have partitions,
 	// oldest first.
 	Days(ctx context.Context) ([]string, error)

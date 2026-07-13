@@ -229,3 +229,48 @@ func TestHistogram(t *testing.T) {
 }
 
 func fmtID(i int) string { return "h" + string(rune('0'+i)) }
+
+func TestAggregate(t *testing.T) {
+	s, _ := Open(t.TempDir())
+	defer s.Close()
+	ctx := context.Background()
+	base := time.Date(2026, 7, 13, 9, 0, 0, 0, time.UTC)
+	mk := func(id, src string, status int) *schema.Message {
+		return &schema.Message{ID: id, Timestamp: base, Source: src, Body: "x",
+			Stream: "default", Fields: map[string]any{"status": status}}
+	}
+	if err := s.Store(ctx, []*schema.Message{
+		mk("1", "web01", 200), mk("2", "web01", 500), mk("3", "web02", 200),
+		mk("4", "web02", 200), mk("5", "web02", 404),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// count grouped by source
+	rows, err := s.Aggregate(ctx, logstore.Query{}, logstore.AggSpec{GroupBy: "source", Metric: logstore.MetricCount})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]float64{}
+	for _, r := range rows {
+		got[r.Key] = r.Value
+	}
+	if got["web02"] != 3 || got["web01"] != 2 {
+		t.Fatalf("count by source = %v", got)
+	}
+	// avg status overall
+	rows, err = s.Aggregate(ctx, logstore.Query{}, logstore.AggSpec{Metric: logstore.MetricAvg, MetricField: "status"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0].Value < 300 || rows[0].Value > 302 {
+		t.Fatalf("avg status = %v", rows)
+	}
+	// p95 status
+	rows, err = s.Aggregate(ctx, logstore.Query{}, logstore.AggSpec{Metric: logstore.MetricP95, MetricField: "status"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0].Value != 500 {
+		t.Fatalf("p95 status = %v", rows)
+	}
+}
