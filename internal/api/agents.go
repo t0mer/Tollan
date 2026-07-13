@@ -5,10 +5,12 @@ import (
 	"crypto/subtle"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/t0mer/tollan/internal/auth"
 	"github.com/t0mer/tollan/internal/meta"
 )
 
@@ -61,21 +63,49 @@ func (a *API) handleAgentRegister(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "id and hostname required")
 		return
 	}
+	// Issue a per-agent secret used to authenticate subsequent heartbeat/config
+	// requests. It is returned once here and stored only as a hash.
+	secret, hash, err := auth.GenerateToken()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	agent := meta.Agent{
 		ID: req.ID, Hostname: req.Hostname, OS: req.OS, Version: req.Version,
-		Tags: req.Tags, EnrolledAt: time.Now().UTC(),
+		Tags: req.Tags, EnrolledAt: time.Now().UTC(), SecretHash: hash,
 	}
 	if err := a.deps.Meta.UpsertAgent(r.Context(), agent); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	// Return current config so the agent starts collecting immediately.
 	stored, _ := a.deps.Meta.GetAgent(r.Context(), req.ID)
-	writeJSON(w, http.StatusOK, map[string]any{"id": req.ID, "config": stored.Config})
+	writeJSON(w, http.StatusOK, map[string]any{"id": req.ID, "secret": secret, "config": stored.Config})
+}
+
+// authAgent validates the per-agent Bearer secret for a heartbeat/config
+// request, returning the agent on success.
+func (a *API) authAgent(r *http.Request, id string) (meta.Agent, bool) {
+	agent, err := a.deps.Meta.GetAgent(r.Context(), id)
+	if err != nil || agent.SecretHash == "" {
+		return meta.Agent{}, false
+	}
+	bearer := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if bearer == "" || bearer == r.Header.Get("Authorization") {
+		return meta.Agent{}, false
+	}
+	if subtle.ConstantTimeCompare([]byte(auth.HashToken(bearer)), []byte(agent.SecretHash)) != 1 {
+		return meta.Agent{}, false
+	}
+	return agent, true
 }
 
 func (a *API) handleAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	agent, ok := a.authAgent(r, id)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "invalid agent credentials")
+		return
+	}
 	var body struct {
 		Shipped int64 `json:"shipped"`
 	}
@@ -84,14 +114,13 @@ func (a *API) handleAgentHeartbeat(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "unknown agent")
 		return
 	}
-	agent, _ := a.deps.Meta.GetAgent(r.Context(), id)
 	writeJSON(w, http.StatusOK, map[string]int{"config_version": agent.ConfigVersion})
 }
 
 func (a *API) handleAgentConfig(w http.ResponseWriter, r *http.Request) {
-	agent, err := a.deps.Meta.GetAgent(r.Context(), chi.URLParam(r, "id"))
-	if err != nil {
-		writeError(w, http.StatusNotFound, "unknown agent")
+	agent, ok := a.authAgent(r, chi.URLParam(r, "id"))
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "invalid agent credentials")
 		return
 	}
 	writeJSON(w, http.StatusOK, agent.Config)

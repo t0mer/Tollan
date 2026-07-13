@@ -34,6 +34,9 @@ type Agent struct {
 	Shipped       int64       `json:"shipped"`
 	ConfigVersion int         `json:"config_version"`
 	Config        AgentConfig `json:"config"`
+	// SecretHash is the hash of the per-agent secret used to authenticate
+	// heartbeat and config-poll requests; never serialized.
+	SecretHash string `json:"-"`
 }
 
 func (s *Store) migrateAgents() error {
@@ -48,22 +51,28 @@ CREATE TABLE IF NOT EXISTS agents (
   last_seen      INTEGER NOT NULL DEFAULT 0,
   shipped        INTEGER NOT NULL DEFAULT 0,
   config         TEXT NOT NULL DEFAULT '{}',
-  config_version INTEGER NOT NULL DEFAULT 0
+  config_version INTEGER NOT NULL DEFAULT 0,
+  secret_hash    TEXT NOT NULL DEFAULT ''
 );`
-	_, err := s.db.Exec(ddl)
-	return err
+	if _, err := s.db.Exec(ddl); err != nil {
+		return err
+	}
+	// Add the secret_hash column to pre-existing tables (idempotent).
+	_, _ = s.db.Exec(`ALTER TABLE agents ADD COLUMN secret_hash TEXT NOT NULL DEFAULT ''`)
+	return nil
 }
 
-// UpsertAgent registers or updates an agent's identity on enrollment.
+// UpsertAgent registers or updates an agent's identity on enrollment, rotating
+// its authentication secret.
 func (s *Store) UpsertAgent(ctx context.Context, a Agent) error {
 	tags, _ := json.Marshal(a.Tags)
 	cfg, _ := json.Marshal(a.Config)
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO agents (id, hostname, os, version, tags, enrolled_at, last_seen, config, config_version)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT(id) DO UPDATE SET hostname=excluded.hostname, os=excluded.os, version=excluded.version, last_seen=excluded.last_seen`,
+		`INSERT INTO agents (id, hostname, os, version, tags, enrolled_at, last_seen, config, config_version, secret_hash)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT(id) DO UPDATE SET hostname=excluded.hostname, os=excluded.os, version=excluded.version, last_seen=excluded.last_seen, secret_hash=excluded.secret_hash`,
 		a.ID, a.Hostname, a.OS, a.Version, string(tags),
-		a.EnrolledAt.UnixMilli(), time.Now().UTC().UnixMilli(), string(cfg), a.ConfigVersion)
+		a.EnrolledAt.UnixMilli(), time.Now().UTC().UnixMilli(), string(cfg), a.ConfigVersion, a.SecretHash)
 	return err
 }
 
@@ -101,13 +110,13 @@ func (s *Store) SetAgentConfig(ctx context.Context, id string, cfg AgentConfig, 
 // GetAgent returns one agent.
 func (s *Store) GetAgent(ctx context.Context, id string) (Agent, error) {
 	return scanAgent(s.db.QueryRowContext(ctx,
-		`SELECT id, hostname, os, version, tags, enrolled_at, last_seen, shipped, config, config_version FROM agents WHERE id = ?`, id))
+		`SELECT id, hostname, os, version, tags, enrolled_at, last_seen, shipped, config, config_version, secret_hash FROM agents WHERE id = ?`, id))
 }
 
 // ListAgents returns all agents, most-recently-seen first.
 func (s *Store) ListAgents(ctx context.Context) ([]Agent, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, hostname, os, version, tags, enrolled_at, last_seen, shipped, config, config_version FROM agents ORDER BY last_seen DESC`)
+		`SELECT id, hostname, os, version, tags, enrolled_at, last_seen, shipped, config, config_version, secret_hash FROM agents ORDER BY last_seen DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +148,7 @@ func scanAgent(sc scanner) (Agent, error) {
 	var a Agent
 	var tags, cfg string
 	var enrolled, lastSeen int64
-	err := sc.Scan(&a.ID, &a.Hostname, &a.OS, &a.Version, &tags, &enrolled, &lastSeen, &a.Shipped, &cfg, &a.ConfigVersion)
+	err := sc.Scan(&a.ID, &a.Hostname, &a.OS, &a.Version, &tags, &enrolled, &lastSeen, &a.Shipped, &cfg, &a.ConfigVersion, &a.SecretHash)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Agent{}, ErrNotFound
 	}

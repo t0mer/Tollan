@@ -42,6 +42,7 @@ type Agent struct {
 	log     *slog.Logger
 	client  *http.Client
 	id      string
+	secret  string
 	shipped atomic.Int64
 
 	mu      sync.Mutex
@@ -80,6 +81,7 @@ func (a *Agent) Run(ctx context.Context) error {
 		return err
 	}
 	a.id = a.loadOrCreateID()
+	a.loadSecret()
 
 	cfg, err := a.register(ctx)
 	if err != nil {
@@ -127,13 +129,28 @@ func (a *Agent) register(ctx context.Context) (agentConfig, error) {
 		"tags":             a.cfg.Tags,
 	})
 	var resp struct {
+		Secret string      `json:"secret"`
 		Config agentConfig `json:"config"`
 	}
 	if err := a.postJSON(ctx, "/api/v1/agents/register", body, &resp); err != nil {
 		return agentConfig{}, err
 	}
+	a.secret = resp.Secret
+	a.persistSecret()
 	a.log.Info("enrolled with server", "id", a.id, "server", a.cfg.ServerURL)
 	return resp.Config, nil
+}
+
+func (a *Agent) persistSecret() {
+	if a.secret != "" {
+		_ = os.WriteFile(filepath.Join(a.cfg.DataDir, "agent-secret"), []byte(a.secret), 0o600)
+	}
+}
+
+func (a *Agent) loadSecret() {
+	if b, err := os.ReadFile(filepath.Join(a.cfg.DataDir, "agent-secret")); err == nil {
+		a.secret = string(bytes.TrimSpace(b))
+	}
 }
 
 func (a *Agent) heartbeat(ctx context.Context) {
@@ -318,7 +335,7 @@ func (a *Agent) postJSON(ctx context.Context, path string, body []byte, out any)
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	return a.do(req, out)
+	return a.do(a.authed(req), out)
 }
 
 func (a *Agent) getJSON(ctx context.Context, path string, out any) error {
@@ -326,7 +343,15 @@ func (a *Agent) getJSON(ctx context.Context, path string, out any) error {
 	if err != nil {
 		return err
 	}
-	return a.do(req, out)
+	return a.do(a.authed(req), out)
+}
+
+// authed adds the per-agent bearer secret to a request.
+func (a *Agent) authed(req *http.Request) *http.Request {
+	if a.secret != "" {
+		req.Header.Set("Authorization", "Bearer "+a.secret)
+	}
+	return req
 }
 
 func (a *Agent) do(req *http.Request, out any) error {
