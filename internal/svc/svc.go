@@ -10,9 +10,12 @@ import (
 	"time"
 
 	"github.com/kardianos/service"
-
-	"github.com/t0mer/tollan/internal/app"
 )
+
+// Runner is a long-running component driven by the service manager.
+type Runner interface {
+	Run(ctx context.Context) error
+}
 
 const (
 	serviceName        = "tollan"
@@ -23,7 +26,7 @@ const (
 
 // program adapts app.App to the kardianos service.Interface.
 type program struct {
-	app    *app.App
+	runner Runner
 	log    *slog.Logger
 	cancel context.CancelFunc
 	done   chan struct{}
@@ -36,7 +39,7 @@ func (p *program) Start(service.Service) error {
 	p.done = make(chan struct{})
 	go func() {
 		defer close(p.done)
-		if err := p.app.Run(ctx); err != nil {
+		if err := p.runner.Run(ctx); err != nil {
 			p.log.Error("tollan exited with error", "error", err)
 		}
 	}()
@@ -60,6 +63,11 @@ func (p *program) Stop(service.Service) error {
 
 // Options configures the service definition baked into the unit at install time.
 type Options struct {
+	// Name/DisplayName/Description override the default identifiers (used by the
+	// agent, which registers as a distinct service).
+	Name        string
+	DisplayName string
+	Description string
 	// Arguments are the process arguments the service manager runs, typically
 	// "run" plus the resolved --data-dir / --config flags.
 	Arguments []string
@@ -93,11 +101,15 @@ WantedBy=multi-user.target
 `
 
 // New builds a kardianos service bound to the given App.
-func New(a *app.App, log *slog.Logger, opts Options) (service.Service, error) {
+func New(r Runner, log *slog.Logger, opts Options) (service.Service, error) {
+	name, display, desc := serviceName, serviceDisplayName, serviceDescription
+	if opts.Name != "" {
+		name, display, desc = opts.Name, opts.DisplayName, opts.Description
+	}
 	cfg := &service.Config{
-		Name:             serviceName,
-		DisplayName:      serviceDisplayName,
-		Description:      serviceDescription,
+		Name:             name,
+		DisplayName:      display,
+		Description:      desc,
 		Arguments:        opts.Arguments,
 		UserName:         opts.UserName,
 		WorkingDirectory: opts.WorkingDirectory,
@@ -106,7 +118,7 @@ func New(a *app.App, log *slog.Logger, opts Options) (service.Service, error) {
 			"SystemdScript": systemdScript,
 		},
 	}
-	prog := &program{app: a, log: log}
+	prog := &program{runner: r, log: log}
 	svc, err := service.New(prog, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("creating service: %w", err)
