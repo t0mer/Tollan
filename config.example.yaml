@@ -15,3 +15,28 @@ http:
 
 auth:
   mode: enabled # enabled | disabled (open lab mode)
+
+# Inputs. If omitted, Tollan starts a sensible default set (syslog, GELF, Beats,
+# NetFlow, IPFIX). Declare your own to override.
+# inputs:
+#   - {id: syslog-udp, type: syslog, bind: ":1514", protocol: udp}
+#   - {id: gelf-udp,   type: gelf,   bind: ":12201", protocol: udp}
+#   - {id: http-json,  type: httpjson, bind: ":8888", token: "my-token"}
+#
+#   # Stream logs from Docker containers on this host. Mount the Docker socket
+#   # into the Tollan container (see docker-compose.yml). Auto-discovers running
+#   # and newly-started containers and enriches each line with container_name,
+#   # image and container_stream.
+#   - {id: docker, type: docker, bind: "unix:///var/run/docker.sock"}
+
+# GeoIP enrichment for geoip(field) pipeline actions (supply your own .mmdb).
+# geoip:
+#   db_path: /data/GeoLite2-City.mmdb
+
+# Retention: drop whole day partitions older than this many days (0 disables).
+# retention:
+#   days: 90
+
+# Fleet: require this token for tollan-agent enrollment (empty = open).
+# agent:
+#   enrollment_token: "change-me"

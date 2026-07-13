@@ -117,6 +117,28 @@ unprivileged ports; map `514:1514` in Docker for standard syslog.
 | Raw plain text | UDP, TCP | — |
 | NetFlow v5 / v9 | UDP | 2055 |
 | IPFIX | UDP | 4739 |
+| **Docker** (Engine API — streams container stdout/stderr) | unix socket / tcp | — |
+
+### Streaming Docker container logs
+
+Add a `docker` input and give Tollan access to the Docker socket. It
+auto-discovers running and newly-started containers, follows their stdout/stderr,
+and enriches each line with `container_name`, `image` and `container_stream`:
+
+```yaml
+inputs:
+  - { id: docker, type: docker, bind: "unix:///var/run/docker.sock" }
+```
+
+In Docker, mount the socket read-only (`/var/run/docker.sock:/var/run/docker.sock:ro`)
+and pass a config with the input — see `docker-compose.yml`.
+
+Alternatively, with **no Tollan-side config**, point Docker's built-in GELF log
+driver at Tollan's GELF input, per container:
+
+```bash
+docker run --log-driver=gelf --log-opt gelf-address=udp://tollan-host:12201 nginx
+```
 
 ---
 

@@ -15,9 +15,17 @@ services:
     volumes:
       # Named volume inherits the image's /data ownership (runs as uid 65534).
       - tollan-data:/data
+      # Optional: stream logs from other containers on this host. Mount the
+      # Docker socket read-only and add a `docker` input (see config below).
+      # This grants Tollan read access to the Docker API — enable deliberately.
+      # - /var/run/docker.sock:/var/run/docker.sock:ro
+      # - ./config.yaml:/config.yaml:ro
     environment:
       TOLLAN_LOG_LEVEL: info
       TOLLAN_DATA_DIR: /data
+    # To collect container logs, mount config.yaml (with a `docker` input and
+    # the default inputs) and point at it:
+    # command: ["run", "--config", "/config.yaml"]
     restart: unless-stopped
 
 volumes:
