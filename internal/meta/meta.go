@@ -60,6 +60,9 @@ CREATE TABLE IF NOT EXISTS saved_searches (
 	if err := s.migrateUsers(); err != nil {
 		return fmt.Errorf("migrating users: %w", err)
 	}
+	if err := s.migrateAgents(); err != nil {
+		return fmt.Errorf("migrating agents: %w", err)
+	}
 	return nil
 }
 
