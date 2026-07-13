@@ -13,10 +13,13 @@ import {
   Waypoints,
   X,
 } from "lucide-react";
+import { LogOut, ShieldAlert } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Badge } from "@/components/ui/badge";
 
 type NavItem = { to: string; label: string; icon: React.ComponentType<{ className?: string }> };
 
@@ -79,8 +82,23 @@ function VersionFooter() {
   );
 }
 
+function UserMenu() {
+  const { user, authEnabled, logout } = useAuth();
+  if (!authEnabled || !user) return null;
+  return (
+    <div className="flex items-center gap-2">
+      <span className="hidden text-sm sm:inline">{user.username}</span>
+      <Badge variant="muted">{user.role}</Badge>
+      <button onClick={() => logout()} title="Sign out" className="rounded-md p-1.5 text-muted-foreground hover:bg-muted">
+        <LogOut className="size-4" />
+      </button>
+    </div>
+  );
+}
+
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { authEnabled } = useAuth();
 
   return (
     <div className="flex min-h-screen">
@@ -129,10 +147,17 @@ export function AppShell() {
           >
             <Menu className="size-5" />
           </button>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-3">
+            <UserMenu />
             <ThemeToggle />
           </div>
         </header>
+        {!authEnabled && (
+          <div className="flex items-center gap-2 border-b border-warning/30 bg-warning/10 px-4 py-1.5 text-xs text-warning">
+            <ShieldAlert className="size-3.5" />
+            Authentication is disabled — the API and UI are open to anyone who can reach this server.
+          </div>
+        )}
         <main className="min-w-0 flex-1 p-4 md:p-8">
           <Outlet />
         </main>

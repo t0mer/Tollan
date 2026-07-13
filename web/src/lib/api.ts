@@ -232,6 +232,36 @@ export type Output = {
 export type ImportChange = { kind: string; id: string; name: string; action: string };
 export type ImportResult = { dry_run: boolean; changes: ImportChange[] };
 
+export type AuthStatus = { auth_enabled: boolean; needs_setup: boolean };
+export type Me = { id: string; username: string; role: "admin" | "editor" | "viewer" };
+export type User = { id: string; username: string; role: string; created_at?: string };
+export type ApiToken = { id: string; name: string; created_at: string; last_used: string };
+
+export const auth = {
+  status: () => apiGet<AuthStatus>("/api/v1/auth/status"),
+  me: () => apiGet<Me>("/api/v1/auth/me"),
+  login: (username: string, password: string) =>
+    apiSend<Me>("POST", "/api/v1/auth/login", { username, password }),
+  setup: (username: string, password: string) =>
+    apiSend<Me>("POST", "/api/v1/auth/setup", { username, password }),
+  logout: () => apiSend<void>("POST", "/api/v1/auth/logout"),
+};
+
+export const users = {
+  list: () => apiGet<User[]>("/api/v1/users"),
+  create: (b: { username: string; password: string; role: string }) =>
+    apiSend<User>("POST", "/api/v1/users", b),
+  update: (id: string, b: { role: string; password?: string }) =>
+    apiSend<void>("PUT", `/api/v1/users/${id}`, b),
+  remove: (id: string) => apiSend<void>("DELETE", `/api/v1/users/${id}`),
+};
+
+export const tokens = {
+  list: () => apiGet<ApiToken[]>("/api/v1/tokens"),
+  create: (name: string) => apiSend<{ id: string; name: string; token: string }>("POST", "/api/v1/tokens", { name }),
+  remove: (id: string) => apiSend<void>("DELETE", `/api/v1/tokens/${id}`),
+};
+
 export const streams = crud<Stream>("streams");
 export const pipelines = crud<Pipeline>("pipelines");
 export const lookups = crud<LookupConfig>("lookups");

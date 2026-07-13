@@ -1,4 +1,8 @@
 import { Routes, Route } from "react-router-dom";
+import { useAuth } from "@/lib/auth";
+import { LoginScreen } from "@/pages/login";
+import { UsersPage } from "@/pages/users";
+import { TokensPage } from "@/pages/tokens";
 import { AppShell } from "@/components/app-shell";
 import { OverviewPage } from "@/pages/overview";
 import { SearchPage } from "@/pages/search";
@@ -14,6 +18,15 @@ import { SystemPage } from "@/pages/system";
 import { PlaceholderPage } from "@/pages/placeholder";
 
 export default function App() {
+  const { loading, authEnabled, needsSetup, user } = useAuth();
+
+  if (loading) {
+    return <div className="grid min-h-screen place-items-center text-sm text-muted-foreground">Loading…</div>;
+  }
+  if (authEnabled && (needsSetup || !user)) {
+    return <LoginScreen />;
+  }
+
   return (
     <Routes>
       <Route element={<AppShell />}>
@@ -37,6 +50,8 @@ export default function App() {
           }
         />
         <Route path="system" element={<SystemPage />} />
+        <Route path="users" element={<UsersPage />} />
+        <Route path="tokens" element={<TokensPage />} />
         <Route path="*" element={<PlaceholderPage title="Not found" blurb="Nothing here." />} />
       </Route>
     </Routes>
