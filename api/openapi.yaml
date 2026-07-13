@@ -23,6 +23,8 @@ tags:
     description: Message streams.
   - name: pipelines
     description: Pipelines, rules and lookup tables.
+  - name: dashboards
+    description: Dashboards and widgets.
 paths:
   /health:
     get:
@@ -163,6 +165,52 @@ paths:
       responses:
         "204": { description: Deleted. }
         "404": { description: Not found. }
+  /api/v1/search/aggregate:
+    get:
+      tags: [search]
+      summary: Group-by aggregation over a query.
+      operationId: aggregate
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: string } }
+        - { name: to, in: query, schema: { type: string } }
+        - { name: group_by, in: query, schema: { type: string } }
+        - { name: metric, in: query, schema: { type: string, enum: [count, sum, avg, min, max, p50, p90, p95, p99] } }
+        - { name: metric_field, in: query, schema: { type: string } }
+      responses: { "200": { description: Aggregation rows. } }
+  /api/v1/search/export:
+    get:
+      tags: [search]
+      summary: Export query results as CSV or JSON.
+      operationId: exportSearch
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - { name: format, in: query, schema: { type: string, enum: [csv, json] } }
+      responses: { "200": { description: Export stream. } }
+  /api/v1/dashboards:
+    get:
+      tags: [dashboards]
+      summary: List dashboards.
+      operationId: listDashboards
+      responses: { "200": { description: Dashboards. } }
+    post:
+      tags: [dashboards]
+      summary: Create a dashboard.
+      operationId: createDashboard
+      responses: { "201": { description: Created. } }
+  /api/v1/dashboards/{id}:
+    put:
+      tags: [dashboards]
+      summary: Update a dashboard.
+      operationId: updateDashboard
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: Updated. } }
+    delete:
+      tags: [dashboards]
+      summary: Delete a dashboard.
+      operationId: deleteDashboard
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "204": { description: Deleted. } }
   /api/v1/inputs:
     get:
       tags: [inputs]
