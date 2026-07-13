@@ -133,12 +133,53 @@ inputs:
 In Docker, mount the socket read-only (`/var/run/docker.sock:/var/run/docker.sock:ro`)
 and pass a config with the input — see `docker-compose.yml`.
 
-Alternatively, with **no Tollan-side config**, point Docker's built-in GELF log
-driver at Tollan's GELF input, per container:
+The socket input only sees containers on **Tollan's own host**. To collect
+containers running on **other servers**, ship them over the network with
+Docker's built-in log driver (per container / per compose service) — see below.
+
+### Shipping container logs from remote servers (per-container / Compose)
+
+Docker's built-in **GELF** log driver sends straight to Tollan's GELF input over
+the network — no agent, no Tollan-side config. Configure it per container:
 
 ```bash
-docker run --log-driver=gelf --log-opt gelf-address=udp://tollan-host:12201 nginx
+docker run \
+  --log-driver=gelf \
+  --log-opt gelf-address=tcp://tollan-host:12201 \
+  --log-opt tag="{{.Name}}" \
+  nginx
 ```
+
+Or per service in **docker-compose.yml** on each server:
+
+```yaml
+services:
+  api:
+    image: my/api
+    logging:
+      driver: gelf
+      options:
+        gelf-address: "tcp://tollan-host:12201"
+        tag: "api"
+        labels: "env,team"       # forward these container labels as fields
+    labels:
+      env: production
+      team: payments
+```
+
+Each event arrives with `container_name`, `image`, `command`, `tag` and any
+forwarded `labels` as searchable fields. The GELF `host` field is set to the
+**origin server's hostname**, so logs from different servers are distinguished by
+`source:` — e.g. `source:web-01 AND container_name:api`. Add an explicit tag
+(`--log-opt tag="{{.Name}}@dc1"`) if you want a custom origin label.
+
+Use `tcp://` for reliable delivery of large log lines; `udp://` is fire-and-forget
+(Tollan reassembles chunked GELF UDP). The **syslog** driver
+(`--log-driver=syslog --log-opt syslog-address=udp://tollan-host:1514`) works the
+same way against Tollan's syslog input.
+
+To avoid reconfiguring every container on a host, run one **`tollan-agent`** (or a
+Tollan `docker` input with the mounted socket) per server instead.
 
 ---
 
