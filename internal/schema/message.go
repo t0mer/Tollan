@@ -3,7 +3,10 @@
 // streams, the log store and search all operate on it.
 package schema
 
-import "time"
+import (
+	"strconv"
+	"time"
+)
 
 // Canonical field names (§5). Inputs and extractors map raw data onto these so
 // search and widgets have a stable vocabulary. Values live in Message.Fields;
@@ -72,4 +75,59 @@ func (m *Message) EnsureTimestamp() {
 	if m.Timestamp.IsZero() {
 		m.Timestamp = m.ReceivedAt
 	}
+}
+
+// StringField returns a message attribute as a string. It resolves the promoted
+// columns (message/source/stream/input_id) and otherwise looks in Fields. The
+// bool reports whether the value was present and non-empty.
+func (m *Message) StringField(name string) (string, bool) {
+	switch name {
+	case FieldMessage, "body":
+		return m.Body, m.Body != ""
+	case FieldSource:
+		return m.Source, m.Source != ""
+	case "stream":
+		return m.Stream, m.Stream != ""
+	case "input_id":
+		return m.InputID, m.InputID != ""
+	}
+	v, ok := m.Fields[name]
+	if !ok || v == nil {
+		return "", false
+	}
+	return stringifyField(v), true
+}
+
+// stringifyField renders a field value as a string for matching/serialization.
+func stringifyField(v any) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case bool:
+		if t {
+			return "true"
+		}
+		return "false"
+	case float64:
+		return strconv.FormatFloat(t, 'f', -1, 64)
+	case int:
+		return strconv.Itoa(t)
+	case int64:
+		return strconv.FormatInt(t, 10)
+	default:
+		return ""
+	}
+}
+
+// NumberField returns a message field as a float64 if it is numeric.
+func (m *Message) NumberField(name string) (float64, bool) {
+	s, ok := m.StringField(name)
+	if !ok {
+		return 0, false
+	}
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0, false
+	}
+	return f, true
 }
