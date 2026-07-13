@@ -21,9 +21,10 @@ import (
 	"github.com/t0mer/tollan/internal/schema"
 )
 
-// Defaults for batching.
+// Defaults for batching. A large batch amortizes the per-transaction cost of the
+// SQLite store, which dominates processing throughput.
 const (
-	defaultBatchSize = 500
+	defaultBatchSize = 2000
 	defaultBatchWait = 25 * time.Millisecond
 	storeRetries     = 3
 	storeRetryWait   = 100 * time.Millisecond

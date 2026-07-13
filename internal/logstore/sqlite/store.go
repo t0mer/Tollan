@@ -53,6 +53,9 @@ func (s *Store) db(day string) (*sql.DB, error) {
 	if db, ok := s.dbs[day]; ok {
 		return db, nil
 	}
+	// WAL + synchronous=NORMAL balances throughput and durability; the ingest
+	// journal (which commits only after a store succeeds) covers any writes lost
+	// to a crash by replaying them on restart.
 	dsn := "file:" + s.pathFor(day) +
 		"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)"
 	db, err := sql.Open("sqlite", dsn)
