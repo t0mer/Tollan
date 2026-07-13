@@ -16,6 +16,7 @@ import (
 	"github.com/t0mer/tollan/internal/journal"
 	"github.com/t0mer/tollan/internal/logstore"
 	"github.com/t0mer/tollan/internal/metrics"
+	"github.com/t0mer/tollan/internal/output"
 	"github.com/t0mer/tollan/internal/pipeline"
 	"github.com/t0mer/tollan/internal/schema"
 )
@@ -33,6 +34,7 @@ type Processor struct {
 	journal *journal.Journal
 	store   logstore.Store
 	engine  *pipeline.Engine
+	outputs *output.Manager
 	log     *slog.Logger
 	metrics *metrics.Metrics
 
@@ -45,6 +47,7 @@ type Options struct {
 	Journal   *journal.Journal
 	Store     logstore.Store
 	Engine    *pipeline.Engine
+	Outputs   *output.Manager
 	Logger    *slog.Logger
 	Metrics   *metrics.Metrics
 	BatchSize int
@@ -63,6 +66,7 @@ func New(opts Options) *Processor {
 		journal:   opts.Journal,
 		store:     opts.Store,
 		engine:    opts.Engine,
+		outputs:   opts.Outputs,
 		log:       opts.Logger,
 		metrics:   opts.Metrics,
 		batchSize: opts.BatchSize,
@@ -141,6 +145,11 @@ func (p *Processor) processBatch(ctx context.Context, batch []item) {
 		// After exhausting retries we skip the batch to avoid a poison-pill
 		// stall; the loss is logged and counted.
 		p.log.Error("dropping batch after store failures", "count", len(msgs), "error", err)
+	} else if p.outputs != nil {
+		// Forward stored messages to configured outputs (best-effort).
+		for _, m := range msgs {
+			p.outputs.Dispatch(m)
+		}
 	}
 
 	// Advance the journal past this batch regardless, so we make progress.

@@ -26,6 +26,7 @@ import (
 	"github.com/t0mer/tollan/internal/meta"
 	"github.com/t0mer/tollan/internal/metrics"
 	"github.com/t0mer/tollan/internal/notify"
+	"github.com/t0mer/tollan/internal/output"
 	"github.com/t0mer/tollan/internal/pipeline"
 	"github.com/t0mer/tollan/internal/processing"
 	"github.com/t0mer/tollan/internal/retention"
@@ -52,6 +53,7 @@ type App struct {
 	geo       *geoip.Resolver
 	retention *retention.Manager
 	events    *event.Engine
+	outputs   *output.Manager
 	processor *processing.Processor
 	inputs    *input.Manager
 	inputCfgs []input.Config
@@ -106,11 +108,13 @@ func New(cfg config.Config, log *slog.Logger) (*App, error) {
 	lookups := lookup.NewManager()
 	router := stream.NewRouter()
 	engine := pipeline.NewEngine(router, pipeline.Env{Lookups: lookups, Geo: geo})
+	outputs := output.NewManager(log, m)
 
 	processor := processing.New(processing.Options{
 		Journal: jnl,
 		Store:   store,
 		Engine:  engine,
+		Outputs: outputs,
 		Logger:  log,
 		Metrics: m,
 	})
@@ -138,6 +142,7 @@ func New(cfg config.Config, log *slog.Logger) (*App, error) {
 		engine:    engine,
 		lookups:   lookups,
 		geo:       geo,
+		outputs:   outputs,
 		processor: processor,
 		inputs:    mgr,
 		inputCfgs: inputCfgs,
@@ -233,6 +238,22 @@ func (a *App) Reload(ctx context.Context) error {
 	if err := a.engine.SetPipelines(pipelines); err != nil {
 		return fmt.Errorf("installing pipelines: %w", err)
 	}
+
+	// Outputs.
+	oEnts, err := a.meta.ListEntities(ctx, meta.KindOutput)
+	if err != nil {
+		return err
+	}
+	outs := make([]output.Output, 0, len(oEnts))
+	for _, e := range oEnts {
+		var o output.Output
+		if err := json.Unmarshal(e.Data, &o); err != nil {
+			continue
+		}
+		o.ID = e.ID
+		outs = append(outs, o)
+	}
+	a.outputs.SetOutputs(outs)
 	return nil
 }
 
@@ -325,6 +346,7 @@ func (a *App) shutdown(procCancel context.CancelFunc, procDone chan error) {
 		<-procDone
 	}
 
+	a.outputs.Stop()
 	if err := a.store.Close(); err != nil {
 		a.log.Warn("store close", "error", err)
 	}
