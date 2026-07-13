@@ -21,6 +21,8 @@ tags:
     description: Ingest inputs.
   - name: streams
     description: Message streams.
+  - name: pipelines
+    description: Pipelines, rules and lookup tables.
 paths:
   /health:
     get:
@@ -181,14 +183,81 @@ paths:
       summary: List streams.
       operationId: listStreams
       responses:
-        "200":
-          description: Streams.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Stream"
+        "200": { description: Streams., content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Stream" } } } } }
+    post:
+      tags: [streams]
+      summary: Create a stream.
+      operationId: createStream
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/Stream" } } } }
+      responses:
+        "201": { description: Created., content: { application/json: { schema: { $ref: "#/components/schemas/Stream" } } } }
+  /api/v1/streams/{id}:
+    put:
+      tags: [streams]
+      summary: Update a stream.
+      operationId: updateStream
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/Stream" } } } }
+      responses: { "200": { description: Updated. } }
+    delete:
+      tags: [streams]
+      summary: Delete a stream.
+      operationId: deleteStream
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "204": { description: Deleted. } }
+  /api/v1/pipelines:
+    get:
+      tags: [pipelines]
+      summary: List pipelines.
+      operationId: listPipelines
+      responses:
+        "200": { description: Pipelines., content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Pipeline" } } } } }
+    post:
+      tags: [pipelines]
+      summary: Create a pipeline.
+      operationId: createPipeline
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/Pipeline" } } } }
+      responses: { "201": { description: Created. } }
+  /api/v1/pipelines/{id}:
+    put:
+      tags: [pipelines]
+      summary: Update a pipeline.
+      operationId: updatePipeline
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/Pipeline" } } } }
+      responses: { "200": { description: Updated. } }
+    delete:
+      tags: [pipelines]
+      summary: Delete a pipeline.
+      operationId: deletePipeline
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "204": { description: Deleted. } }
+  /api/v1/lookups:
+    get:
+      tags: [pipelines]
+      summary: List lookup tables.
+      operationId: listLookups
+      responses: { "200": { description: Lookup tables. } }
+    post:
+      tags: [pipelines]
+      summary: Create a lookup table.
+      operationId: createLookup
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/LookupConfig" } } } }
+      responses: { "201": { description: Created. } }
+  /api/v1/lookups/{id}:
+    put:
+      tags: [pipelines]
+      summary: Update a lookup table.
+      operationId: updateLookup
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/LookupConfig" } } } }
+      responses: { "200": { description: Updated. } }
+    delete:
+      tags: [pipelines]
+      summary: Delete a lookup table.
+      operationId: deleteLookup
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "204": { description: Deleted. } }
 components:
   securitySchemes:
     bearerToken:
@@ -292,11 +361,49 @@ components:
         bind: { type: string }
         protocol: { type: string, enum: [udp, tcp, tls, http] }
         running: { type: boolean }
+    MatchRule:
+      type: object
+      properties:
+        field: { type: string }
+        type: { type: string, enum: [exact, regex, presence, contains, gt, lt] }
+        value: { type: string }
+        negate: { type: boolean }
     Stream:
       type: object
+      required: [name]
       properties:
         id: { type: string }
         name: { type: string }
+        description: { type: string }
+        combinator: { type: string, enum: [and, or] }
+        rules: { type: array, items: { $ref: "#/components/schemas/MatchRule" } }
+        retention_days: { type: integer }
+        field_types: { type: object, additionalProperties: { type: string } }
+    PipelineRule:
+      type: object
+      properties:
+        name: { type: string }
+        when: { type: string }
+        then: { type: array, items: { type: string } }
+    Pipeline:
+      type: object
+      required: [name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        enabled: { type: boolean }
+        stages: { type: array, items: { type: string } }
+        rules: { type: array, items: { $ref: "#/components/schemas/PipelineRule" } }
+    LookupConfig:
+      type: object
+      required: [name, source_type, source]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        source_type: { type: string, enum: [file, url] }
+        source: { type: string }
+        key_column: { type: string }
+        value_column: { type: string }
 security:
   - bearerToken: []
   - sessionCookie: []
