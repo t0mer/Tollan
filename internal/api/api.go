@@ -46,6 +46,8 @@ func (a *API) Routes() chi.Router {
 	r.Route("/v1", func(r chi.Router) {
 		r.Get("/version", a.handleVersion)
 		r.Get("/search", a.handleSearch)
+		r.Get("/search/histogram", a.handleHistogram)
+		r.Get("/search/fields", a.handleFields)
 		r.Get("/inputs", a.handleInputs)
 		r.Get("/streams", a.handleStreams)
 	})
