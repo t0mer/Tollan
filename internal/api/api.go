@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/t0mer/tollan/internal/auth"
 	"github.com/t0mer/tollan/internal/crypto"
 	"github.com/t0mer/tollan/internal/input"
 	"github.com/t0mer/tollan/internal/logstore"
@@ -31,10 +32,27 @@ type ConfigStore interface {
 	DeleteEntity(ctx context.Context, kind, id string) error
 }
 
-// MetaStore combines saved searches, config-entity and event storage.
+// UserStore is the user and API-token persistence the API needs.
+type UserStore interface {
+	CountUsers(ctx context.Context) (int, error)
+	CreateUser(ctx context.Context, username, role, passwordHash string) (meta.User, error)
+	GetUser(ctx context.Context, id string) (meta.User, error)
+	GetUserByUsername(ctx context.Context, username string) (meta.User, error)
+	ListUsers(ctx context.Context) ([]meta.User, error)
+	UpdateUser(ctx context.Context, id, role, passwordHash string) error
+	DeleteUser(ctx context.Context, id string) error
+	CreateToken(ctx context.Context, userID, name, hash string) (meta.APIToken, error)
+	ListTokens(ctx context.Context, userID string) ([]meta.APIToken, error)
+	GetTokenByHash(ctx context.Context, hash string) (meta.APIToken, error)
+	TouchToken(ctx context.Context, id string)
+	DeleteToken(ctx context.Context, userID, id string) error
+}
+
+// MetaStore combines saved searches, config-entity, event and user storage.
 type MetaStore interface {
 	SavedSearchStore
 	ConfigStore
+	UserStore
 	ListEvents(ctx context.Context, limit int) ([]meta.Event, error)
 }
 
@@ -50,6 +68,10 @@ type Deps struct {
 	Cipher *crypto.Cipher
 	// Notifier sends test notifications.
 	Notifier *notify.Notifier
+	// AuthEnabled gates authentication; when false the API is open (lab mode).
+	AuthEnabled bool
+	// Sessioner signs session cookies.
+	Sessioner *auth.Sessioner
 }
 
 // API holds the handler dependencies.
@@ -70,6 +92,10 @@ func (a *API) Routes() chi.Router {
 	r.Get("/docs", a.handleDocs)
 
 	r.Route("/v1", func(r chi.Router) {
+		r.Use(a.authMiddleware)
+		r.Route("/auth", a.authRoutes)
+		r.Route("/users", a.userRoutes)
+		r.Route("/tokens", a.tokenRoutes)
 		r.Get("/version", a.handleVersion)
 		r.Get("/search", a.handleSearch)
 		r.Get("/search/histogram", a.handleHistogram)
