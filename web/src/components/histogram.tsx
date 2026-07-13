@@ -64,7 +64,7 @@ export function Histogram({ data }: { data?: HistogramData }) {
             labelFormatter={(t) => new Date(Number(t)).toISOString().replace("T", " ").slice(0, 19)}
             formatter={(v: number) => [v, "messages"]}
           />
-          <Bar dataKey="count" fill="var(--primary)" radius={[2, 2, 0, 0]} maxBarSize={28} />
+          <Bar dataKey="count" fill="var(--primary)" radius={[2, 2, 0, 0]} maxBarSize={28} isAnimationActive={false} />
         </BarChart>
       </ResponsiveContainer>
     </div>

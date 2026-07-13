@@ -5,6 +5,8 @@ import { SearchPage } from "@/pages/search";
 import { InputsPage } from "@/pages/inputs";
 import { StreamsPage } from "@/pages/streams";
 import { PipelinesPage } from "@/pages/pipelines";
+import { DashboardsPage } from "@/pages/dashboards";
+import { DashboardViewPage } from "@/pages/dashboard-view";
 import { PlaceholderPage } from "@/pages/placeholder";
 
 export default function App() {
@@ -15,15 +17,8 @@ export default function App() {
         <Route path="search" element={<SearchPage />} />
         <Route path="streams" element={<StreamsPage />} />
         <Route path="pipelines" element={<PipelinesPage />} />
-        <Route
-          path="dashboards"
-          element={
-            <PlaceholderPage
-              title="Dashboards"
-              blurb="Compose widgets into shareable, auto-refreshing dashboards."
-            />
-          }
-        />
+        <Route path="dashboards" element={<DashboardsPage />} />
+        <Route path="dashboards/:id" element={<DashboardViewPage />} />
         <Route
           path="alerts"
           element={

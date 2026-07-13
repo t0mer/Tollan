@@ -146,9 +146,44 @@ function crud<T extends { id?: string }>(kind: string) {
   };
 }
 
+export type WidgetType = "table" | "histogram" | "bar" | "line" | "area" | "pie" | "stat" | "topn" | "map";
+export type Widget = {
+  id: string;
+  type: WidgetType;
+  title: string;
+  query?: string;
+  time_range?: string;
+  group_by?: string;
+  metric?: string;
+  metric_field?: string;
+  w: number;
+  h: number;
+};
+export type Dashboard = {
+  id?: string;
+  name: string;
+  refresh_seconds?: number;
+  time_range?: string;
+  widgets: Widget[];
+};
+
+export type AggRow = { key: string; value: number };
+export type AggResponse = { rows: AggRow[] };
+
+export type AggParams = SearchParams & {
+  group_by?: string;
+  metric?: string;
+  metric_field?: string;
+};
+
 export const streams = crud<Stream>("streams");
 export const pipelines = crud<Pipeline>("pipelines");
 export const lookups = crud<LookupConfig>("lookups");
+export const dashboards = crud<Dashboard>("dashboards");
+
+export function exportUrl(p: SearchParams, format: "csv" | "json"): string {
+  return `/api/v1/search/export?${toQS({ ...p, format })}`;
+}
 
 export const api = {
   version: () => apiGet<VersionInfo>("/api/v1/version"),
@@ -158,6 +193,7 @@ export const api = {
   histogram: (p: SearchParams) =>
     apiGet<Histogram>(`/api/v1/search/histogram?${toQS(p)}`),
   fields: (p: SearchParams) => apiGet<FieldFacet[]>(`/api/v1/search/fields?${toQS(p)}`),
+  aggregate: (p: AggParams) => apiGet<AggResponse>(`/api/v1/search/aggregate?${toQS(p)}`),
   savedSearches: () => apiGet<SavedSearch[]>("/api/v1/saved-searches"),
   createSavedSearch: (b: { name: string; query: string; time_range: string }) =>
     apiSend<SavedSearch>("POST", "/api/v1/saved-searches", b),
