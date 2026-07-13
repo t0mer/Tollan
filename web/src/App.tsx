@@ -12,6 +12,7 @@ import { PipelinesPage } from "@/pages/pipelines";
 import { DashboardsPage } from "@/pages/dashboards";
 import { DashboardViewPage } from "@/pages/dashboard-view";
 import { AlertsPage } from "@/pages/alerts";
+import { FleetPage } from "@/pages/fleet";
 import { NotificationsPage } from "@/pages/notifications";
 import { OutputsPage } from "@/pages/outputs";
 import { SystemPage } from "@/pages/system";
@@ -40,15 +41,7 @@ export default function App() {
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="outputs" element={<OutputsPage />} />
         <Route path="inputs" element={<InputsPage />} />
-        <Route
-          path="fleet"
-          element={
-            <PlaceholderPage
-              title="Fleet"
-              blurb="Manage tollan-agent collectors and their centralized configuration."
-            />
-          }
-        />
+        <Route path="fleet" element={<FleetPage />} />
         <Route path="system" element={<SystemPage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="tokens" element={<TokensPage />} />

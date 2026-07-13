@@ -262,6 +262,33 @@ export const tokens = {
   remove: (id: string) => apiSend<void>("DELETE", `/api/v1/tokens/${id}`),
 };
 
+export type FleetFileSource = { paths: string[]; multiline_pattern?: string };
+export type FleetAgentConfig = {
+  version: number;
+  files: FleetFileSource[];
+  journald: boolean;
+  windows_event_log: boolean;
+};
+export type FleetAgent = {
+  id: string;
+  hostname: string;
+  os: string;
+  version: string;
+  tags: string[];
+  enrolled_at: string;
+  last_seen: string;
+  shipped: number;
+  config_version: number;
+  config: FleetAgentConfig;
+};
+
+export const agents = {
+  list: () => apiGet<FleetAgent[]>("/api/v1/agents"),
+  update: (id: string, b: { tags: string[]; config: FleetAgentConfig }) =>
+    apiSend<void>("PUT", `/api/v1/agents/${id}`, b),
+  remove: (id: string) => apiSend<void>("DELETE", `/api/v1/agents/${id}`),
+};
+
 export const streams = crud<Stream>("streams");
 export const pipelines = crud<Pipeline>("pipelines");
 export const lookups = crud<LookupConfig>("lookups");
