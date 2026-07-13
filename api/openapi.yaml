@@ -31,6 +31,8 @@ tags:
     description: Events, definitions and notification channels.
   - name: outputs
     description: Message forwarding outputs.
+  - name: fleet
+    description: Agent fleet management.
 paths:
   /health:
     get:
@@ -318,6 +320,39 @@ paths:
       operationId: importContentPack
       parameters: [{ name: dry_run, in: query, schema: { type: boolean } }]
       responses: { "200": { description: Import result / diff. } }
+  /api/v1/agents:
+    get: { tags: [fleet], summary: List enrolled agents., operationId: listAgents, responses: { "200": { description: Agents. } } }
+  /api/v1/agents/register:
+    post: { tags: [fleet], summary: Enroll an agent (enrollment-token auth)., operationId: registerAgent, security: [], responses: { "200": { description: Enrolled, returns config. } } }
+  /api/v1/agents/{id}/heartbeat:
+    post:
+      tags: [fleet]
+      summary: Agent heartbeat (agent-id auth).
+      operationId: agentHeartbeat
+      security: []
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: Current config version. } }
+  /api/v1/agents/{id}/config:
+    get:
+      tags: [fleet]
+      summary: Fetch an agent's collector config (agent-id auth).
+      operationId: agentConfig
+      security: []
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: Config. } }
+  /api/v1/agents/{id}:
+    put:
+      tags: [fleet]
+      summary: Update an agent's config and tags.
+      operationId: updateAgent
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "204": { description: Updated. } }
+    delete:
+      tags: [fleet]
+      summary: Remove an agent.
+      operationId: deleteAgent
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "204": { description: Deleted. } }
   /api/v1/inputs:
     get:
       tags: [inputs]
