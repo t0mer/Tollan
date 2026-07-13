@@ -25,11 +25,24 @@ type Config struct {
 	// metadata database.
 	DataDir string `mapstructure:"data_dir"`
 
-	Log     LogConfig      `mapstructure:"log"`
-	HTTP    HTTPConfig     `mapstructure:"http"`
-	Auth    AuthConfig     `mapstructure:"auth"`
-	Journal JournalConfig  `mapstructure:"journal"`
-	Inputs  []input.Config `mapstructure:"inputs"`
+	Log       LogConfig       `mapstructure:"log"`
+	HTTP      HTTPConfig      `mapstructure:"http"`
+	Auth      AuthConfig      `mapstructure:"auth"`
+	Journal   JournalConfig   `mapstructure:"journal"`
+	Inputs    []input.Config  `mapstructure:"inputs"`
+	GeoIP     GeoIPConfig     `mapstructure:"geoip"`
+	Retention RetentionConfig `mapstructure:"retention"`
+}
+
+// GeoIPConfig points at an optional MaxMind/IPinfo .mmdb database.
+type GeoIPConfig struct {
+	DBPath string `mapstructure:"db_path"`
+}
+
+// RetentionConfig controls how long log partitions are kept.
+type RetentionConfig struct {
+	// Days is the global default retention; 0 disables partition-level pruning.
+	Days int `mapstructure:"days"`
 }
 
 // JournalConfig bounds the disk-backed ingest journal. Zero values fall back to
@@ -80,6 +93,9 @@ func Defaults() Config {
 		Auth: AuthConfig{
 			Mode: "enabled",
 		},
+		Retention: RetentionConfig{
+			Days: 90,
+		},
 	}
 }
 
@@ -121,6 +137,7 @@ func Load(fs *pflag.FlagSet) (Config, error) {
 	v.SetDefault("http.write_timeout", d.HTTP.WriteTimeout)
 	v.SetDefault("http.idle_timeout", d.HTTP.IdleTimeout)
 	v.SetDefault("auth.mode", d.Auth.Mode)
+	v.SetDefault("retention.days", d.Retention.Days)
 
 	// Environment: TOLLAN_HTTP_ADDR, TOLLAN_LOG_LEVEL, TOLLAN_DATA_DIR, ...
 	v.SetEnvPrefix(EnvPrefix)

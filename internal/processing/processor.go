@@ -16,8 +16,8 @@ import (
 	"github.com/t0mer/tollan/internal/journal"
 	"github.com/t0mer/tollan/internal/logstore"
 	"github.com/t0mer/tollan/internal/metrics"
+	"github.com/t0mer/tollan/internal/pipeline"
 	"github.com/t0mer/tollan/internal/schema"
-	"github.com/t0mer/tollan/internal/stream"
 )
 
 // Defaults for batching.
@@ -28,11 +28,11 @@ const (
 	storeRetryWait   = 100 * time.Millisecond
 )
 
-// Processor drives journal → decode → route → store.
+// Processor drives journal → decode → pipeline (route + enrich) → store.
 type Processor struct {
 	journal *journal.Journal
 	store   logstore.Store
-	router  *stream.Router
+	engine  *pipeline.Engine
 	log     *slog.Logger
 	metrics *metrics.Metrics
 
@@ -44,7 +44,7 @@ type Processor struct {
 type Options struct {
 	Journal   *journal.Journal
 	Store     logstore.Store
-	Router    *stream.Router
+	Engine    *pipeline.Engine
 	Logger    *slog.Logger
 	Metrics   *metrics.Metrics
 	BatchSize int
@@ -59,13 +59,10 @@ func New(opts Options) *Processor {
 	if opts.BatchWait <= 0 {
 		opts.BatchWait = defaultBatchWait
 	}
-	if opts.Router == nil {
-		opts.Router = stream.NewRouter()
-	}
 	return &Processor{
 		journal:   opts.Journal,
 		store:     opts.Store,
-		router:    opts.Router,
+		engine:    opts.Engine,
 		log:       opts.Logger,
 		metrics:   opts.Metrics,
 		batchSize: opts.BatchSize,
@@ -132,7 +129,11 @@ func (p *Processor) processBatch(ctx context.Context, batch []item) {
 			m.ReceivedAt = it.rec.ReceivedAt
 		}
 		m.EnsureTimestamp()
-		p.router.Route(m)
+		// Pipelines normalize/enrich, route to a stream, and may drop the message.
+		if p.engine.Process(m) {
+			continue
+		}
+		m.EnsureTimestamp() // pipelines may have set/changed the timestamp
 		msgs = append(msgs, m)
 	}
 

@@ -43,8 +43,10 @@ type Options struct {
 	Store logstore.Store
 	// Inputs lists running inputs for the API.
 	Inputs api.InputLister
-	// Saved backs the saved-searches API.
-	Saved api.SavedSearchStore
+	// Meta backs saved searches and config entities (streams, pipelines, ...).
+	Meta api.MetaStore
+	// Reload re-applies config to the running engine after CRUD.
+	Reload func(context.Context) error
 }
 
 // New builds a Server with the routes mounted.
@@ -80,7 +82,8 @@ func (s *Server) routes(opts Options) http.Handler {
 		Spec:   opts.APISpec,
 		Store:  opts.Store,
 		Inputs: opts.Inputs,
-		Saved:  opts.Saved,
+		Meta:   opts.Meta,
+		Reload: opts.Reload,
 	}).Routes())
 
 	if opts.WebUI != nil {

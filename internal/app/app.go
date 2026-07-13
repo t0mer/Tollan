@@ -5,21 +5,27 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	tollan "github.com/t0mer/tollan"
 	"github.com/t0mer/tollan/internal/config"
+	"github.com/t0mer/tollan/internal/geoip"
 	"github.com/t0mer/tollan/internal/input"
 	"github.com/t0mer/tollan/internal/journal"
 	"github.com/t0mer/tollan/internal/logstore"
 	"github.com/t0mer/tollan/internal/logstore/sqlite"
+	"github.com/t0mer/tollan/internal/lookup"
 	"github.com/t0mer/tollan/internal/meta"
 	"github.com/t0mer/tollan/internal/metrics"
+	"github.com/t0mer/tollan/internal/pipeline"
 	"github.com/t0mer/tollan/internal/processing"
+	"github.com/t0mer/tollan/internal/retention"
 	"github.com/t0mer/tollan/internal/server"
 	"github.com/t0mer/tollan/internal/stream"
 	"github.com/t0mer/tollan/internal/version"
@@ -37,14 +43,22 @@ type App struct {
 	journal   *journal.Journal
 	store     logstore.Store
 	meta      *meta.Store
+	router    *stream.Router
+	engine    *pipeline.Engine
+	lookups   *lookup.Manager
+	geo       *geoip.Resolver
+	retention *retention.Manager
 	processor *processing.Processor
 	inputs    *input.Manager
 	inputCfgs []input.Config
 	server    *server.Server
+
+	policyMu sync.Mutex
+	policies []retention.StreamPolicy
 }
 
-// New builds the App from resolved configuration, opening the journal and log
-// store and wiring the ingest pipeline.
+// New builds the App from resolved configuration, opening the stores and wiring
+// the ingest → pipeline → store path.
 func New(cfg config.Config, log *slog.Logger) (*App, error) {
 	if err := os.MkdirAll(cfg.DataDir, 0o750); err != nil {
 		return nil, fmt.Errorf("creating data dir %q: %w", cfg.DataDir, err)
@@ -71,10 +85,18 @@ func New(cfg config.Config, log *slog.Logger) (*App, error) {
 		return nil, fmt.Errorf("opening metadata store: %w", err)
 	}
 
+	geo, err := geoip.New(cfg.GeoIP.DBPath)
+	if err != nil {
+		return nil, fmt.Errorf("opening geoip: %w", err)
+	}
+	lookups := lookup.NewManager()
+	router := stream.NewRouter()
+	engine := pipeline.NewEngine(router, pipeline.Env{Lookups: lookups, Geo: geo})
+
 	processor := processing.New(processing.Options{
 		Journal: jnl,
 		Store:   store,
-		Router:  stream.NewRouter(),
+		Engine:  engine,
 		Logger:  log,
 		Metrics: m,
 	})
@@ -91,7 +113,24 @@ func New(cfg config.Config, log *slog.Logger) (*App, error) {
 
 	mgr := input.NewManager(log)
 
-	srv := server.New(server.Options{
+	a := &App{
+		cfg:       cfg,
+		log:       log,
+		metrics:   m,
+		journal:   jnl,
+		store:     store,
+		meta:      metaStore,
+		router:    router,
+		engine:    engine,
+		lookups:   lookups,
+		geo:       geo,
+		processor: processor,
+		inputs:    mgr,
+		inputCfgs: inputCfgs,
+	}
+	a.retention = retention.New(store, cfg.Retention.Days, a.streamPolicies, log)
+
+	a.server = server.New(server.Options{
 		Config:  cfg.HTTP,
 		Logger:  log,
 		Metrics: m,
@@ -99,21 +138,99 @@ func New(cfg config.Config, log *slog.Logger) (*App, error) {
 		WebUI:   webUI,
 		Store:   store,
 		Inputs:  mgr,
-		Saved:   metaStore,
+		Meta:    metaStore,
+		Reload:  a.Reload,
 	})
 
-	return &App{
-		cfg:       cfg,
-		log:       log,
-		metrics:   m,
-		journal:   jnl,
-		store:     store,
-		meta:      metaStore,
-		processor: processor,
-		inputs:    mgr,
-		inputCfgs: inputCfgs,
-		server:    srv,
-	}, nil
+	// Load configured streams/pipelines/lookups so processing starts correctly.
+	if err := a.Reload(context.Background()); err != nil {
+		log.Warn("initial config load had errors", "error", err)
+	}
+	return a, nil
+}
+
+// Reload recompiles streams, pipelines and lookup tables from the metadata store
+// and installs them into the running engine, router and lookup manager. It is
+// invoked at startup and after config CRUD via the API.
+func (a *App) Reload(ctx context.Context) error {
+	// Streams.
+	sEnts, err := a.meta.ListEntities(ctx, meta.KindStream)
+	if err != nil {
+		return err
+	}
+	var compiled []*stream.Compiled
+	var policies []retention.StreamPolicy
+	for _, e := range sEnts {
+		var s stream.Stream
+		if err := json.Unmarshal(e.Data, &s); err != nil {
+			a.log.Warn("skipping malformed stream", "id", e.ID, "error", err)
+			continue
+		}
+		s.ID = e.ID
+		c, err := stream.Compile(s)
+		if err != nil {
+			a.log.Warn("skipping stream with bad rules", "id", e.ID, "error", err)
+			continue
+		}
+		compiled = append(compiled, c)
+		if s.RetentionDays > 0 {
+			policies = append(policies, retention.StreamPolicy{ID: s.ID, Days: s.RetentionDays})
+		}
+	}
+	a.router.SetStreams(compiled)
+	a.setPolicies(policies)
+
+	// Lookup tables.
+	lEnts, err := a.meta.ListEntities(ctx, meta.KindLookup)
+	if err != nil {
+		return err
+	}
+	for _, e := range lEnts {
+		var cfg lookup.Config
+		if err := json.Unmarshal(e.Data, &cfg); err != nil {
+			continue
+		}
+		if cfg.Name == "" {
+			cfg.Name = e.Name
+		}
+		if err := a.lookups.Load(ctx, cfg); err != nil {
+			a.log.Warn("loading lookup table failed", "name", cfg.Name, "error", err)
+		}
+	}
+
+	// Pipelines.
+	pEnts, err := a.meta.ListEntities(ctx, meta.KindPipeline)
+	if err != nil {
+		return err
+	}
+	pipelines := make([]pipeline.Pipeline, 0, len(pEnts))
+	for _, e := range pEnts {
+		var p pipeline.Pipeline
+		if err := json.Unmarshal(e.Data, &p); err != nil {
+			a.log.Warn("skipping malformed pipeline", "id", e.ID, "error", err)
+			continue
+		}
+		p.ID = e.ID
+		pipelines = append(pipelines, p)
+	}
+	if err := a.engine.SetPipelines(pipelines); err != nil {
+		return fmt.Errorf("installing pipelines: %w", err)
+	}
+	return nil
+}
+
+func (a *App) setPolicies(p []retention.StreamPolicy) {
+	a.policyMu.Lock()
+	a.policies = p
+	a.policyMu.Unlock()
+}
+
+func (a *App) streamPolicies() []retention.StreamPolicy {
+	a.policyMu.Lock()
+	defer a.policyMu.Unlock()
+	out := make([]retention.StreamPolicy, len(a.policies))
+	copy(out, a.policies)
+	return out
 }
 
 // Run starts all subsystems and blocks until ctx is cancelled, then performs a
@@ -128,6 +245,8 @@ func (a *App) Run(ctx context.Context) error {
 	if a.cfg.Auth.Mode == "disabled" {
 		a.log.Warn("auth is DISABLED — the API and UI are open to anyone who can reach them")
 	}
+
+	a.retention.Start()
 
 	// Ingest pipeline: inputs publish to the journal; the processor drains it.
 	pub := &journalPublisher{journal: a.journal, metrics: a.metrics}
@@ -150,7 +269,6 @@ func (a *App) Run(ctx context.Context) error {
 		}
 		return nil
 	case err := <-procDone:
-		// Processor should only return on drain; an early return is an error.
 		a.shutdown(procCancel, procDone)
 		return err
 	case <-ctx.Done():
@@ -165,6 +283,7 @@ func (a *App) shutdown(procCancel context.CancelFunc, procDone chan error) {
 	sctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
+	a.retention.Stop()
 	if err := a.server.Shutdown(sctx); err != nil {
 		a.log.Warn("http shutdown", "error", err)
 	}
@@ -172,8 +291,6 @@ func (a *App) shutdown(procCancel context.CancelFunc, procDone chan error) {
 		a.log.Warn("input shutdown", "error", err)
 	}
 
-	// Flush and close the journal so the processor drains remaining records and
-	// then returns ErrClosed.
 	if err := a.journal.Sync(); err != nil {
 		a.log.Warn("journal sync", "error", err)
 	}
@@ -194,6 +311,9 @@ func (a *App) shutdown(procCancel context.CancelFunc, procDone chan error) {
 	}
 	if err := a.meta.Close(); err != nil {
 		a.log.Warn("metadata store close", "error", err)
+	}
+	if a.geo != nil {
+		_ = a.geo.Close()
 	}
 	a.log.Info("shutdown complete")
 }
