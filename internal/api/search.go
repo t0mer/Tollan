@@ -221,9 +221,26 @@ func (a *API) handleExport(w http.ResponseWriter, r *http.Request) {
 	_ = cw.Write([]string{"timestamp", "source", "stream", "level", "message"})
 	for _, m := range res.Messages {
 		lvl, _ := m.StringField("level")
-		_ = cw.Write([]string{m.Timestamp.Format(time.RFC3339), m.Source, m.Stream, lvl, m.Body})
+		_ = cw.Write([]string{
+			m.Timestamp.Format(time.RFC3339),
+			csvSafe(m.Source), csvSafe(m.Stream), csvSafe(lvl), csvSafe(m.Body),
+		})
 	}
 	cw.Flush()
+}
+
+// csvSafe neutralizes spreadsheet formula injection: log content is
+// attacker-controlled, so a cell starting with a formula trigger is prefixed
+// with a single quote to force it to be treated as text.
+func csvSafe(s string) string {
+	if s == "" {
+		return s
+	}
+	switch s[0] {
+	case '=', '+', '-', '@', '\t', '\r':
+		return "'" + s
+	}
+	return s
 }
 
 func orDefault(v, def string) string {
