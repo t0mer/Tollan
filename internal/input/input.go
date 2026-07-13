@@ -58,6 +58,8 @@ type Config struct {
 	// TLSCertFile / TLSKeyFile enable TLS for tcp inputs when set.
 	TLSCertFile string `mapstructure:"tls_cert_file"`
 	TLSKeyFile  string `mapstructure:"tls_key_file"`
+	// Token authenticates HTTP-JSON submissions when set.
+	Token string `mapstructure:"token"`
 }
 
 // Validate checks a Config for the common required fields.

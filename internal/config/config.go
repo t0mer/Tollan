@@ -107,6 +107,9 @@ func DefaultInputs() []input.Config {
 		{ID: "syslog-udp", Type: "syslog", Bind: ":1514", Protocol: input.UDP},
 		{ID: "syslog-tcp", Type: "syslog", Bind: ":1514", Protocol: input.TCP},
 		{ID: "gelf-udp", Type: "gelf", Bind: ":12201", Protocol: input.UDP},
+		{ID: "beats", Type: "beats", Bind: ":5044", Protocol: input.TCP},
+		{ID: "netflow", Type: "netflow", Bind: ":2055", Protocol: input.UDP},
+		{ID: "ipfix", Type: "ipfix", Bind: ":4739", Protocol: input.UDP},
 	}
 }
 

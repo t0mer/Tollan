@@ -122,3 +122,34 @@ func assertField(t *testing.T, m *schema.Message, key string, want any) {
 		t.Errorf("field %q = %v (%T), want %v (%T)", key, got, got, want, want)
 	}
 }
+
+func TestDecodeCEF(t *testing.T) {
+	line := `<134>1 host CEF:0|Security|threatmanager|1.0|100|worm stopped|10|src=10.0.0.1 dst=2.1.2.2 spt=1232 act=blocked`
+	m, err := Decode("cef", "1.2.3.4", received, []byte(line))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Body != "worm stopped" {
+		t.Errorf("body = %q", m.Body)
+	}
+	assertField(t, m, "device_product", "threatmanager")
+	assertField(t, m, schema.FieldSrcIP, "10.0.0.1")
+	assertField(t, m, schema.FieldDstIP, "2.1.2.2")
+	assertField(t, m, schema.FieldSrcPort, "1232")
+	assertField(t, m, schema.FieldEventAction, "blocked")
+	assertField(t, m, schema.FieldLevel, "critical")
+}
+
+func TestDecodeJSONInput(t *testing.T) {
+	m, err := Decode("httpjson", "h", received, []byte(`{"message":"hello","level":"warn","host":{"name":"app1"},"status":200}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Body != "hello" || m.Source != "app1" {
+		t.Errorf("body=%q source=%q", m.Body, m.Source)
+	}
+	assertField(t, m, "level", "warn")
+	if v, _ := m.GetField("status"); v != float64(200) {
+		t.Errorf("status = %v", v)
+	}
+}

@@ -18,6 +18,10 @@ func Decode(inputType, source string, received time.Time, payload []byte) (*sche
 		return decodeSyslog(source, received, payload)
 	case "gelf":
 		return decodeGELF(source, received, payload)
+	case "cef":
+		return decodeCEF(source, received, payload)
+	case "httpjson", "beats", "netflow", "ipfix":
+		return decodeJSON(source, received, payload)
 	case "raw":
 		return decodeRaw(source, received, payload), nil
 	default:

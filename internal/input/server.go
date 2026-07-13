@@ -134,6 +134,15 @@ func (s *netServer) stop(ctx context.Context) error {
 	}
 }
 
+// listen opens a TCP listener on bind (used by HTTP-based inputs).
+func listen(bind string) (net.Listener, error) {
+	ln, err := net.Listen("tcp", bind)
+	if err != nil {
+		return nil, fmt.Errorf("binding %s: %w", bind, err)
+	}
+	return ln, nil
+}
+
 // hostOf extracts the host portion of a network address.
 func hostOf(addr net.Addr) string {
 	host, _, err := net.SplitHostPort(addr.String())

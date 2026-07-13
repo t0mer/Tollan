@@ -20,6 +20,14 @@ func Build(cfg Config, pub Publisher, log *slog.Logger) (Input, error) {
 		return NewSyslog(cfg, pub, il), nil
 	case "gelf":
 		return NewGelf(cfg, pub, il), nil
+	case "cef":
+		return NewCEF(cfg, pub, il), nil
+	case "httpjson":
+		return NewHTTPJSON(cfg, pub, il), nil
+	case "beats":
+		return NewBeats(cfg, pub, il), nil
+	case "netflow", "ipfix":
+		return NewNetFlow(cfg, pub, il), nil
 	default:
 		return nil, fmt.Errorf("input %q: unknown type %q", cfg.ID, cfg.Type)
 	}
