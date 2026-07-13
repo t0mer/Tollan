@@ -13,6 +13,7 @@ import (
 	"github.com/t0mer/tollan/internal/meta"
 	"github.com/t0mer/tollan/internal/pipeline"
 	"github.com/t0mer/tollan/internal/pipeline/dsl"
+	"github.com/t0mer/tollan/internal/search/query"
 	"github.com/t0mer/tollan/internal/stream"
 )
 
@@ -26,6 +27,28 @@ func (a *API) configRoutes(r chi.Router) {
 	r.Route("/pipelines", func(r chi.Router) { a.entityRoutes(r, meta.KindPipeline, validatePipeline) })
 	r.Route("/lookups", func(r chi.Router) { a.entityRoutes(r, meta.KindLookup, validateLookup) })
 	r.Route("/dashboards", func(r chi.Router) { a.entityRoutes(r, meta.KindDashboard, validateNamed) })
+	r.Route("/event-definitions", func(r chi.Router) { a.entityRoutes(r, meta.KindEvent, validateEventDef) })
+}
+
+// validateEventDef validates an event definition: name required and the query
+// must parse.
+func validateEventDef(id string, raw json.RawMessage) (string, json.RawMessage, error) {
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return "", nil, err
+	}
+	name, _ := m["name"].(string)
+	if name == "" {
+		return "", nil, errors.New("name is required")
+	}
+	if q, ok := m["query"].(string); ok {
+		if _, err := query.Parse(q); err != nil {
+			return "", nil, err
+		}
+	}
+	m["id"] = id
+	out, err := json.Marshal(m)
+	return name, out, err
 }
 
 // validateNamed is a generic validator: it requires a "name" field and injects

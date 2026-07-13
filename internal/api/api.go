@@ -10,9 +10,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/t0mer/tollan/internal/crypto"
 	"github.com/t0mer/tollan/internal/input"
 	"github.com/t0mer/tollan/internal/logstore"
 	"github.com/t0mer/tollan/internal/meta"
+	"github.com/t0mer/tollan/internal/notify"
 	"github.com/t0mer/tollan/internal/version"
 )
 
@@ -29,10 +31,11 @@ type ConfigStore interface {
 	DeleteEntity(ctx context.Context, kind, id string) error
 }
 
-// MetaStore combines saved searches and config-entity storage.
+// MetaStore combines saved searches, config-entity and event storage.
 type MetaStore interface {
 	SavedSearchStore
 	ConfigStore
+	ListEvents(ctx context.Context, limit int) ([]meta.Event, error)
 }
 
 // Deps are the API handler dependencies.
@@ -43,6 +46,10 @@ type Deps struct {
 	Meta   MetaStore
 	// Reload re-applies config to the running engine after a config change.
 	Reload func(context.Context) error
+	// Cipher encrypts notification-channel secrets at rest.
+	Cipher *crypto.Cipher
+	// Notifier sends test notifications.
+	Notifier *notify.Notifier
 }
 
 // API holds the handler dependencies.
@@ -70,7 +77,9 @@ func (a *API) Routes() chi.Router {
 		r.Get("/search/aggregate", a.handleAggregate)
 		r.Get("/search/export", a.handleExport)
 		r.Get("/inputs", a.handleInputs)
+		r.Get("/events", a.handleListEvents)
 		r.Route("/saved-searches", a.savedRoutes)
+		r.Route("/notifications", a.notificationRoutes)
 		a.configRoutes(r)
 	})
 	return r

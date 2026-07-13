@@ -17,8 +17,10 @@ import (
 
 	"github.com/t0mer/tollan/internal/api"
 	"github.com/t0mer/tollan/internal/config"
+	"github.com/t0mer/tollan/internal/crypto"
 	"github.com/t0mer/tollan/internal/logstore"
 	"github.com/t0mer/tollan/internal/metrics"
+	"github.com/t0mer/tollan/internal/notify"
 	"github.com/t0mer/tollan/internal/version"
 )
 
@@ -47,6 +49,10 @@ type Options struct {
 	Meta api.MetaStore
 	// Reload re-applies config to the running engine after CRUD.
 	Reload func(context.Context) error
+	// Cipher encrypts notification-channel secrets.
+	Cipher *crypto.Cipher
+	// Notifier sends test notifications.
+	Notifier *notify.Notifier
 }
 
 // New builds a Server with the routes mounted.
@@ -82,8 +88,10 @@ func (s *Server) routes(opts Options) http.Handler {
 		Spec:   opts.APISpec,
 		Store:  opts.Store,
 		Inputs: opts.Inputs,
-		Meta:   opts.Meta,
-		Reload: opts.Reload,
+		Meta:     opts.Meta,
+		Reload:   opts.Reload,
+		Cipher:   opts.Cipher,
+		Notifier: opts.Notifier,
 	}).Routes())
 
 	if opts.WebUI != nil {

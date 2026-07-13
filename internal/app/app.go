@@ -15,6 +15,8 @@ import (
 
 	tollan "github.com/t0mer/tollan"
 	"github.com/t0mer/tollan/internal/config"
+	"github.com/t0mer/tollan/internal/crypto"
+	"github.com/t0mer/tollan/internal/event"
 	"github.com/t0mer/tollan/internal/geoip"
 	"github.com/t0mer/tollan/internal/input"
 	"github.com/t0mer/tollan/internal/journal"
@@ -23,6 +25,7 @@ import (
 	"github.com/t0mer/tollan/internal/lookup"
 	"github.com/t0mer/tollan/internal/meta"
 	"github.com/t0mer/tollan/internal/metrics"
+	"github.com/t0mer/tollan/internal/notify"
 	"github.com/t0mer/tollan/internal/pipeline"
 	"github.com/t0mer/tollan/internal/processing"
 	"github.com/t0mer/tollan/internal/retention"
@@ -48,6 +51,7 @@ type App struct {
 	lookups   *lookup.Manager
 	geo       *geoip.Resolver
 	retention *retention.Manager
+	events    *event.Engine
 	processor *processing.Processor
 	inputs    *input.Manager
 	inputCfgs []input.Config
@@ -84,6 +88,16 @@ func New(cfg config.Config, log *slog.Logger) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("opening metadata store: %w", err)
 	}
+
+	key, err := crypto.LoadOrCreateKey(filepath.Join(cfg.DataDir, "secret.key"))
+	if err != nil {
+		return nil, fmt.Errorf("loading secret key: %w", err)
+	}
+	cipher, err := crypto.New(key)
+	if err != nil {
+		return nil, fmt.Errorf("initializing cipher: %w", err)
+	}
+	notifier := notify.New()
 
 	geo, err := geoip.New(cfg.GeoIP.DBPath)
 	if err != nil {
@@ -129,17 +143,20 @@ func New(cfg config.Config, log *slog.Logger) (*App, error) {
 		inputCfgs: inputCfgs,
 	}
 	a.retention = retention.New(store, cfg.Retention.Days, a.streamPolicies, log)
+	a.events = event.New(store, metaStore, notifier, cipher, m, log)
 
 	a.server = server.New(server.Options{
-		Config:  cfg.HTTP,
-		Logger:  log,
-		Metrics: m,
-		APISpec: tollan.OpenAPISpec(),
-		WebUI:   webUI,
-		Store:   store,
-		Inputs:  mgr,
-		Meta:    metaStore,
-		Reload:  a.Reload,
+		Config:   cfg.HTTP,
+		Logger:   log,
+		Metrics:  m,
+		APISpec:  tollan.OpenAPISpec(),
+		WebUI:    webUI,
+		Store:    store,
+		Inputs:   mgr,
+		Meta:     metaStore,
+		Reload:   a.Reload,
+		Cipher:   cipher,
+		Notifier: notifier,
 	})
 
 	// Load configured streams/pipelines/lookups so processing starts correctly.
@@ -247,6 +264,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	a.retention.Start()
+	a.events.Start()
 
 	// Ingest pipeline: inputs publish to the journal; the processor drains it.
 	pub := &journalPublisher{journal: a.journal, metrics: a.metrics}
@@ -284,6 +302,7 @@ func (a *App) shutdown(procCancel context.CancelFunc, procDone chan error) {
 	defer cancel()
 
 	a.retention.Stop()
+	a.events.Stop()
 	if err := a.server.Shutdown(sctx); err != nil {
 		a.log.Warn("http shutdown", "error", err)
 	}
