@@ -7,6 +7,8 @@ import { StreamsPage } from "@/pages/streams";
 import { PipelinesPage } from "@/pages/pipelines";
 import { DashboardsPage } from "@/pages/dashboards";
 import { DashboardViewPage } from "@/pages/dashboard-view";
+import { AlertsPage } from "@/pages/alerts";
+import { NotificationsPage } from "@/pages/notifications";
 import { PlaceholderPage } from "@/pages/placeholder";
 
 export default function App() {
@@ -19,15 +21,8 @@ export default function App() {
         <Route path="pipelines" element={<PipelinesPage />} />
         <Route path="dashboards" element={<DashboardsPage />} />
         <Route path="dashboards/:id" element={<DashboardViewPage />} />
-        <Route
-          path="alerts"
-          element={
-            <PlaceholderPage
-              title="Alerts"
-              blurb="Define events and notify Shoutrrr, WhatsApp, webhook and email channels."
-            />
-          }
-        />
+        <Route path="alerts" element={<AlertsPage />} />
+        <Route path="notifications" element={<NotificationsPage />} />
         <Route path="inputs" element={<InputsPage />} />
         <Route
           path="fleet"

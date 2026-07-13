@@ -176,10 +176,62 @@ export type AggParams = SearchParams & {
   metric_field?: string;
 };
 
+export type EventDefinition = {
+  id?: string;
+  name: string;
+  enabled: boolean;
+  type: "filter" | "aggregation";
+  query: string;
+  window_seconds: number;
+  threshold: number;
+  group_by?: string;
+  metric?: string;
+  metric_field?: string;
+  channels: string[];
+  message_template?: string;
+  grace_seconds?: number;
+  backlog?: number;
+};
+
+export type FiredEvent = {
+  id: string;
+  definition_name: string;
+  fired_at: string;
+  message: string;
+  count: number;
+  group_key: string;
+};
+
+export type Channel = {
+  id?: string;
+  name: string;
+  provider: "shoutrrr" | "greenapi" | "whatsapp_web";
+  enabled: boolean;
+  notify_on_success: boolean;
+  notify_on_failure: boolean;
+  url?: string;
+  instance_id?: string;
+  token?: string;
+  phone?: string;
+  api_url?: string;
+  base_url?: string;
+  username?: string;
+  password?: string;
+};
+
 export const streams = crud<Stream>("streams");
 export const pipelines = crud<Pipeline>("pipelines");
 export const lookups = crud<LookupConfig>("lookups");
 export const dashboards = crud<Dashboard>("dashboards");
+export const eventDefinitions = crud<EventDefinition>("event-definitions");
+
+export const channels = {
+  list: () => apiGet<Channel[]>("/api/v1/notifications"),
+  create: (b: Channel) => apiSend<Channel>("POST", "/api/v1/notifications", b),
+  update: (id: string, b: Channel) => apiSend<Channel>("PUT", `/api/v1/notifications/${id}`, b),
+  remove: (id: string) => apiSend<void>("DELETE", `/api/v1/notifications/${id}`),
+  test: (b: Channel) => apiSend<{ status: string }>("POST", "/api/v1/notifications/test", b),
+};
 
 export function exportUrl(p: SearchParams, format: "csv" | "json"): string {
   return `/api/v1/search/export?${toQS({ ...p, format })}`;
@@ -194,6 +246,7 @@ export const api = {
     apiGet<Histogram>(`/api/v1/search/histogram?${toQS(p)}`),
   fields: (p: SearchParams) => apiGet<FieldFacet[]>(`/api/v1/search/fields?${toQS(p)}`),
   aggregate: (p: AggParams) => apiGet<AggResponse>(`/api/v1/search/aggregate?${toQS(p)}`),
+  events: () => apiGet<FiredEvent[]>("/api/v1/events"),
   savedSearches: () => apiGet<SavedSearch[]>("/api/v1/saved-searches"),
   createSavedSearch: (b: { name: string; query: string; time_range: string }) =>
     apiSend<SavedSearch>("POST", "/api/v1/saved-searches", b),
