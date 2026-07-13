@@ -3,16 +3,10 @@ package input
 import (
 	"context"
 	"encoding/json"
-	"io"
-	stdlog "log"
 	"log/slog"
 
 	"github.com/elastic/go-lumber/server"
 )
-
-// go-lumber emits verbose debug output through the standard library logger;
-// Tollan logs exclusively via slog, so route that noise to /dev/null.
-func init() { stdlog.SetOutput(io.Discard) }
 
 // Beats receives events from Filebeat/Winlogbeat over the Lumberjack v2 protocol
 // (with acks). Each event is a JSON object journaled with type "beats".

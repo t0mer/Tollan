@@ -7,9 +7,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	stdlog "log"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -70,6 +72,13 @@ func New(cfg config.Config, log *slog.Logger) (*App, error) {
 	if err := os.MkdirAll(cfg.DataDir, 0o750); err != nil {
 		return nil, fmt.Errorf("creating data dir %q: %w", cfg.DataDir, err)
 	}
+
+	// Tollan logs via slog. A few dependencies (e.g. go-lumber) write through the
+	// standard library logger; route that into slog at debug level so it is
+	// demoted below the default info level rather than cluttering stdout — but
+	// still visible with --log-level debug and never silently discarded.
+	stdlog.SetOutput(stdlogBridge{log})
+	stdlog.SetFlags(0)
 
 	m := metrics.New()
 
@@ -361,6 +370,15 @@ func (a *App) shutdown(procCancel context.CancelFunc, procDone chan error) {
 		_ = a.geo.Close()
 	}
 	a.log.Info("shutdown complete")
+}
+
+// stdlogBridge forwards standard-library log output into slog at debug level so
+// dependency logs are preserved but demoted below the default level.
+type stdlogBridge struct{ log *slog.Logger }
+
+func (b stdlogBridge) Write(p []byte) (int, error) {
+	b.log.Debug(strings.TrimRight(string(p), "\n"), "source", "stdlib")
+	return len(p), nil
 }
 
 // journalPublisher adapts input.RawMessage to the ingest journal and counts
