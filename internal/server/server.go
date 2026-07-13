@@ -43,6 +43,8 @@ type Options struct {
 	Store logstore.Store
 	// Inputs lists running inputs for the API.
 	Inputs api.InputLister
+	// Saved backs the saved-searches API.
+	Saved api.SavedSearchStore
 }
 
 // New builds a Server with the routes mounted.
@@ -78,6 +80,7 @@ func (s *Server) routes(opts Options) http.Handler {
 		Spec:   opts.APISpec,
 		Store:  opts.Store,
 		Inputs: opts.Inputs,
+		Saved:  opts.Saved,
 	}).Routes())
 
 	if opts.WebUI != nil {

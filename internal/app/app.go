@@ -17,6 +17,7 @@ import (
 	"github.com/t0mer/tollan/internal/journal"
 	"github.com/t0mer/tollan/internal/logstore"
 	"github.com/t0mer/tollan/internal/logstore/sqlite"
+	"github.com/t0mer/tollan/internal/meta"
 	"github.com/t0mer/tollan/internal/metrics"
 	"github.com/t0mer/tollan/internal/processing"
 	"github.com/t0mer/tollan/internal/server"
@@ -35,6 +36,7 @@ type App struct {
 
 	journal   *journal.Journal
 	store     logstore.Store
+	meta      *meta.Store
 	processor *processing.Processor
 	inputs    *input.Manager
 	inputCfgs []input.Config
@@ -62,6 +64,11 @@ func New(cfg config.Config, log *slog.Logger) (*App, error) {
 	store, err := sqlite.Open(filepath.Join(cfg.DataDir, "logs"))
 	if err != nil {
 		return nil, fmt.Errorf("opening log store: %w", err)
+	}
+
+	metaStore, err := meta.Open(filepath.Join(cfg.DataDir, "tollan.db"))
+	if err != nil {
+		return nil, fmt.Errorf("opening metadata store: %w", err)
 	}
 
 	processor := processing.New(processing.Options{
@@ -92,6 +99,7 @@ func New(cfg config.Config, log *slog.Logger) (*App, error) {
 		WebUI:   webUI,
 		Store:   store,
 		Inputs:  mgr,
+		Saved:   metaStore,
 	})
 
 	return &App{
@@ -100,6 +108,7 @@ func New(cfg config.Config, log *slog.Logger) (*App, error) {
 		metrics:   m,
 		journal:   jnl,
 		store:     store,
+		meta:      metaStore,
 		processor: processor,
 		inputs:    mgr,
 		inputCfgs: inputCfgs,
@@ -182,6 +191,9 @@ func (a *App) shutdown(procCancel context.CancelFunc, procDone chan error) {
 
 	if err := a.store.Close(); err != nil {
 		a.log.Warn("store close", "error", err)
+	}
+	if err := a.meta.Close(); err != nil {
+		a.log.Warn("metadata store close", "error", err)
 	}
 	a.log.Info("shutdown complete")
 }
