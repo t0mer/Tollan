@@ -54,6 +54,9 @@ CREATE TABLE IF NOT EXISTS saved_searches (
 	if err := s.migrateEntities(); err != nil {
 		return fmt.Errorf("migrating entities: %w", err)
 	}
+	if err := s.migrateEvents(); err != nil {
+		return fmt.Errorf("migrating events: %w", err)
+	}
 	return nil
 }
 
