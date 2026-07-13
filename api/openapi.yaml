@@ -27,6 +27,8 @@ tags:
     description: Dashboards and widgets.
   - name: alerts
     description: Events, definitions and notification channels.
+  - name: outputs
+    description: Message forwarding outputs.
 paths:
   /health:
     get:
@@ -253,6 +255,31 @@ paths:
       operationId: deleteChannel
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses: { "204": { description: Deleted. } }
+  /api/v1/outputs:
+    get: { tags: [outputs], summary: List outputs., operationId: listOutputs, responses: { "200": { description: Outputs. } } }
+    post: { tags: [outputs], summary: Create an output., operationId: createOutput, responses: { "201": { description: Created. } } }
+  /api/v1/outputs/{id}:
+    put:
+      tags: [outputs]
+      summary: Update an output.
+      operationId: updateOutput
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: Updated. } }
+    delete:
+      tags: [outputs]
+      summary: Delete an output.
+      operationId: deleteOutput
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "204": { description: Deleted. } }
+  /api/v1/content-packs/export:
+    get: { tags: [system], summary: Export a content pack (JSON bundle)., operationId: exportContentPack, responses: { "200": { description: Bundle. } } }
+  /api/v1/content-packs/import:
+    post:
+      tags: [system]
+      summary: Import a content pack (dry_run=true previews).
+      operationId: importContentPack
+      parameters: [{ name: dry_run, in: query, schema: { type: boolean } }]
+      responses: { "200": { description: Import result / diff. } }
   /api/v1/inputs:
     get:
       tags: [inputs]
