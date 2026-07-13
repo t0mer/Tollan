@@ -165,7 +165,7 @@ func (a *API) handleSetup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	a.setSession(w, u.ID)
+	a.setSession(w, r, u.ID)
 	writeJSON(w, http.StatusCreated, publicUser(u))
 }
 
@@ -184,14 +184,14 @@ func (a *API) handleLogin(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
-	a.setSession(w, u.ID)
+	a.setSession(w, r, u.ID)
 	writeJSON(w, http.StatusOK, publicUser(u))
 }
 
 func (a *API) handleLogout(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name: sessionCookie, Value: "", Path: "/", MaxAge: -1,
-		HttpOnly: true, SameSite: http.SameSiteLaxMode,
+		HttpOnly: true, Secure: isHTTPS(r), SameSite: http.SameSiteLaxMode,
 	})
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -205,7 +205,7 @@ func (a *API) handleMe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"id": u.ID, "username": u.Username, "role": u.Role})
 }
 
-func (a *API) setSession(w http.ResponseWriter, userID string) {
+func (a *API) setSession(w http.ResponseWriter, r *http.Request, userID string) {
 	if a.deps.Sessioner == nil {
 		return
 	}
@@ -215,8 +215,15 @@ func (a *API) setSession(w http.ResponseWriter, userID string) {
 		Path:     "/",
 		MaxAge:   int(sessionTTL.Seconds()),
 		HttpOnly: true,
+		Secure:   isHTTPS(r),
 		SameSite: http.SameSiteLaxMode,
 	})
+}
+
+// isHTTPS reports whether the request arrived over TLS, directly or via a
+// trusted reverse proxy, so the session cookie can carry the Secure flag.
+func isHTTPS(r *http.Request) bool {
+	return r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
 }
 
 func publicUser(u meta.User) map[string]string {
