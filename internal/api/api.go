@@ -24,6 +24,7 @@ type Deps struct {
 	Spec   []byte
 	Store  logstore.Store
 	Inputs InputLister
+	Saved  SavedSearchStore
 }
 
 // API holds the handler dependencies.
@@ -50,6 +51,7 @@ func (a *API) Routes() chi.Router {
 		r.Get("/search/fields", a.handleFields)
 		r.Get("/inputs", a.handleInputs)
 		r.Get("/streams", a.handleStreams)
+		r.Route("/saved-searches", a.savedRoutes)
 	})
 	return r
 }
