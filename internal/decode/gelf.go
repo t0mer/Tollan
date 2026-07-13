@@ -65,6 +65,15 @@ func decodeGELF(source string, received time.Time, payload []byte) (*schema.Mess
 		}
 		m.SetField(name, v)
 	}
+
+	// Normalize Docker's GELF-driver fields so container logs shipped via the log
+	// driver expose the same canonical fields as the socket-based docker input
+	// (e.g. `image` works regardless of collection path).
+	if _, ok := m.Fields["image"]; !ok {
+		if img, ok := m.Fields["image_name"]; ok {
+			m.SetField("image", img)
+		}
+	}
 	return m, nil
 }
 
