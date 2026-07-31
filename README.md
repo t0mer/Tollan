@@ -28,37 +28,37 @@ Licensed under Apache-2.0.
 Lucene-style query language, a time histogram, and a guided-search sidebar of
 fields with click-to-filter values.
 
-![Search](assets/screenshots/search.png)
+![Search](https://raw.githubusercontent.com/t0mer/Tollan/main/assets/screenshots/search.png)
 
 ### Dashboards
 A responsive widget grid — stat tiles, bar/line/area/pie charts, histograms,
 top-N tables and a GeoIP world map — with per-widget queries, auto-refresh, a
 full-screen TV mode, and CSV/JSON export.
 
-![Dashboard](assets/screenshots/dashboard.png)
+![Dashboard](https://raw.githubusercontent.com/t0mer/Tollan/main/assets/screenshots/dashboard.png)
 
 ### Streams & pipelines
 Route messages into categories with match rules; normalize and enrich them with
 a `when … then …` rule pipeline (grok, key=value, JSON/CSV, GeoIP, lookups).
 
-![Streams](assets/screenshots/streams.png)
+![Streams](https://raw.githubusercontent.com/t0mer/Tollan/main/assets/screenshots/streams.png)
 
 ### Alerts
 Filter and aggregation event definitions that fan out to Shoutrrr, WhatsApp,
 webhook and email channels (credentials encrypted at rest).
 
-![Alerts](assets/screenshots/alerts.png)
+![Alerts](https://raw.githubusercontent.com/t0mer/Tollan/main/assets/screenshots/alerts.png)
 
 ### Fleet
 `tollan-agent` collectors with status, shipped volume and centrally-managed
 collector configuration.
 
-![Fleet](assets/screenshots/fleet.png)
+![Fleet](https://raw.githubusercontent.com/t0mer/Tollan/main/assets/screenshots/fleet.png)
 
 ### Overview
 Server health and build at a glance.
 
-![Overview](assets/screenshots/overview.png)
+![Overview](https://raw.githubusercontent.com/t0mer/Tollan/main/assets/screenshots/overview.png)
 
 The UI is mobile-first and ships a system-aware light/dark theme.
 
